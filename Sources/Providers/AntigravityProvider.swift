@@ -8,10 +8,11 @@ enum AntigravityProvider {
 
     static func fetch() async -> ProviderStatus {
         if let status = await fetchLocalLS() { return status }
-        if let token = await Task.detached(priority: .utility, operation: { loadAccessToken() }).value {
+        let token = await Task.detached(priority: .utility, operation: { loadAccessToken() }).value
+        if let token {
             if let status = await fetchCloud(token: token) { return status }
         }
-        if await Task.detached(priority: .utility, operation: { loadAccessToken() }).value == nil {
+        if token == nil {
             return .missingAuth(hint: ProviderID.antigravity.missingHint)
         }
         return .error("Antigravity quota unavailable. Open Antigravity and try again.")
@@ -135,7 +136,13 @@ enum AntigravityProvider {
         return blobs
     }
 
+    private static let allowedKeys: Set<String> = [
+        "antigravityUnifiedStateSync.oauthToken",
+        "antigravityAuthStatus",
+    ]
+
     private static func sqliteValue(path: URL, key: String) -> Data? {
+        guard allowedKeys.contains(key) else { return nil }
         let sqlite = ProcessRun.which("sqlite3") ?? "/usr/bin/sqlite3"
         let uri = "file:\(path.path)?mode=ro"
         guard let stdout = try? ProcessRun.capture(

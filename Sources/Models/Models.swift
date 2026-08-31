@@ -99,7 +99,7 @@ enum UsageMath {
     /// Map a JSON utilization that may be either 0...1 or 0...100.
     static func percent(fromRaw raw: Double) -> Double {
         if raw < 0 { return 0 }
-        if raw <= 1.0 { return raw * 100.0 }
+        if raw <= 2.0 { return min(raw * 100.0, 200) }
         return min(raw, 999)
     }
 

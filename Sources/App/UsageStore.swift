@@ -64,7 +64,6 @@ final class UsageStore: ObservableObject {
             switch result {
             case .rateLimited(let until):
                 let wait = max(until.timeIntervalSinceNow, 30)
-                interval = Backoff.next(current: max(interval, 60))
                 await sleep(wait)
             case .error, .missingAuth:
                 interval = min(max(interval, 60) * 1.5, 300)

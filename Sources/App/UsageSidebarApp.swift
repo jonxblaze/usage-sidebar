@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                DispatchQueue.main.async { self?.animateResize() }
+                self?.animateResize()
             }
     }
 

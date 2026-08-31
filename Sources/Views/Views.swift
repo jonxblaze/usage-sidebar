@@ -516,11 +516,21 @@ enum SVGPathEngine {
                 currentPoint = end
             case "A", "a":
                 let isRel = (currentCmd == "a")
-                guard let _ = nextNumber(), let _ = nextNumber(),
-                      let _ = nextNumber(), let _ = nextNumber(), let _ = nextNumber(),
+                guard let rx = nextNumber(), let ry = nextNumber(),
+                      let xRotation = nextNumber(), let largeArcFlag = nextNumber(), let sweepFlag = nextNumber(),
                       let ex = nextNumber(), let ey = nextNumber() else { break }
                 let end = isRel ? CGPoint(x: currentPoint.x + ex, y: currentPoint.y + ey) : CGPoint(x: ex, y: ey)
-                path.addLine(to: end)
+                if rx == 0 || ry == 0 || currentPoint == end {
+                    path.addLine(to: end)
+                } else {
+                    let segments = arcSegments(
+                        from: currentPoint, to: end, rx: rx, ry: ry,
+                        xRotationDeg: xRotation, largeArc: largeArcFlag != 0, sweep: sweepFlag != 0
+                    )
+                    for seg in segments {
+                        path.addCurve(to: seg.end, control1: seg.control1, control2: seg.control2)
+                    }
+                }
                 currentPoint = end
                 lastControlPoint = nil
             case "Z", "z":
@@ -532,6 +542,92 @@ enum SVGPathEngine {
             }
         }
         return path
+    }
+
+    /// Converts an SVG elliptical arc (endpoint parameterization) into cubic bezier
+    /// segments, per the standard SVG 1.1 Appendix F.6 conversion.
+    private static func arcSegments(
+        from start: CGPoint,
+        to end: CGPoint,
+        rx: CGFloat,
+        ry: CGFloat,
+        xRotationDeg: CGFloat,
+        largeArc: Bool,
+        sweep: Bool
+    ) -> [(control1: CGPoint, control2: CGPoint, end: CGPoint)] {
+        var rx = abs(rx)
+        var ry = abs(ry)
+        let phi = xRotationDeg * .pi / 180
+        let cosPhi = cos(phi)
+        let sinPhi = sin(phi)
+
+        // Step 1: compute (x1', y1') — start point in the rotated ellipse frame.
+        let dx2 = (start.x - end.x) / 2
+        let dy2 = (start.y - end.y) / 2
+        let x1p = cosPhi * dx2 + sinPhi * dy2
+        let y1p = -sinPhi * dx2 + cosPhi * dy2
+
+        // Step 2: correct out-of-range radii.
+        let lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+        if lambda > 1 {
+            let scale = sqrt(lambda)
+            rx *= scale
+            ry *= scale
+        }
+
+        // Step 3: compute the ellipse center (cx', cy') then (cx, cy).
+        let sign: CGFloat = (largeArc != sweep) ? 1 : -1
+        let num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
+        let den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+        let co = den == 0 ? 0 : sign * sqrt(max(0, num / den))
+        let cxp = co * (rx * y1p / ry)
+        let cyp = co * (-ry * x1p / rx)
+        let cx = cosPhi * cxp - sinPhi * cyp + (start.x + end.x) / 2
+        let cy = sinPhi * cxp + cosPhi * cyp + (start.y + end.y) / 2
+
+        // Step 4: compute the start angle and sweep angle.
+        func angleBetween(_ ux: CGFloat, _ uy: CGFloat, _ vx: CGFloat, _ vy: CGFloat) -> CGFloat {
+            let dot = ux * vx + uy * vy
+            let len = sqrt(ux * ux + uy * uy) * sqrt(vx * vx + vy * vy)
+            var a = acos(max(-1, min(1, dot / len)))
+            if ux * vy - uy * vx < 0 { a = -a }
+            return a
+        }
+        let ux = (x1p - cxp) / rx
+        let uy = (y1p - cyp) / ry
+        let vx = (-x1p - cxp) / rx
+        let vy = (-y1p - cyp) / ry
+        let theta1 = angleBetween(1, 0, ux, uy)
+        var deltaTheta = angleBetween(ux, uy, vx, vy)
+        if !sweep, deltaTheta > 0 {
+            deltaTheta -= 2 * .pi
+        } else if sweep, deltaTheta < 0 {
+            deltaTheta += 2 * .pi
+        }
+
+        // Step 5: split into <= 90° segments and approximate each with a cubic bezier.
+        let segCount = max(1, Int(ceil(abs(deltaTheta) / (.pi / 2))))
+        let segAngle = deltaTheta / CGFloat(segCount)
+        let alpha = 4.0 / 3.0 * tan(segAngle / 4)
+
+        func transform(_ p: CGPoint) -> CGPoint {
+            let x = rx * p.x
+            let y = ry * p.y
+            return CGPoint(x: cosPhi * x - sinPhi * y + cx, y: sinPhi * x + cosPhi * y + cy)
+        }
+
+        var segments: [(control1: CGPoint, control2: CGPoint, end: CGPoint)] = []
+        var angle1 = theta1
+        for _ in 0..<segCount {
+            let angle2 = angle1 + segAngle
+            let p1 = CGPoint(x: cos(angle1), y: sin(angle1))
+            let p2 = CGPoint(x: cos(angle2), y: sin(angle2))
+            let q1 = CGPoint(x: p1.x - alpha * sin(angle1), y: p1.y + alpha * cos(angle1))
+            let q2 = CGPoint(x: p2.x + alpha * sin(angle2), y: p2.y - alpha * cos(angle2))
+            segments.append((transform(q1), transform(q2), transform(p2)))
+            angle1 = angle2
+        }
+        return segments
     }
 
     private static func tokenize(_ d: String) -> [String] {

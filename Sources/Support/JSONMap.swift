@@ -120,41 +120,6 @@ enum TokenScan {
         return nil
     }
 
-    static func refreshToken(inJSON json: Any) -> String? {
-        if let dict = json as? [String: Any] {
-            for key in ["refresh_token", "refreshToken"] {
-                if let s = dict[key] as? String {
-                    let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if t.count > 10 { return t }
-                }
-            }
-            if let nested = dict["token"], let found = refreshToken(inJSON: nested) { return found }
-            for value in dict.values {
-                if let found = refreshToken(inJSON: value) { return found }
-            }
-        }
-        return nil
-    }
-
-    static func clientID(inJSON json: Any) -> String? {
-        guard let dict = json as? [String: Any] else { return nil }
-        for key in ["client_id", "clientId"] {
-            if let s = dict[key] as? String, s.contains(".apps.googleusercontent.com") { return s }
-        }
-        for value in dict.values {
-            if let found = clientID(inJSON: value) { return found }
-        }
-        return nil
-    }
-
-    static func clientSecret(inJSON json: Any) -> String? {
-        guard let dict = json as? [String: Any] else { return nil }
-        for key in ["client_secret", "clientSecret"] {
-            if let s = dict[key] as? String, s.count > 8 { return s }
-        }
-        return nil
-    }
-
     private static func firstMatch(in text: String, prefix: String) -> String? {
         guard let range = text.range(of: prefix) else { return nil }
         let rest = text[range.lowerBound...]

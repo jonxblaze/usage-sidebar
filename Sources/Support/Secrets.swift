@@ -233,9 +233,3 @@ enum HTTP {
         return nil
     }
 }
-
-enum Backoff {
-    static func next(current: TimeInterval) -> TimeInterval {
-        min(current * 2, 15 * 60)
-    }
-}
