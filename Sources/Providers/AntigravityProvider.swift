@@ -102,14 +102,10 @@ enum AntigravityProvider {
 
     private static func credentialBlobs() -> [Data] {
         var blobs: [Data] = []
-        let user = NSUserName()
-        if let d = Secrets.keychainPassword(service: "gemini", account: "antigravity") { blobs.append(d) }
-        if let d = Secrets.keychainPassword(service: "gemini") { blobs.append(d) }
-        if let d = Secrets.keychainPassword(service: "Antigravity Safe Storage", account: user) { blobs.append(d) }
         let files = [
+            ".gemini/antigravity-cli/oauth_creds.json",
             ".gemini/oauth_creds.json",
             ".gemini/google_accounts.json",
-            ".gemini/antigravity-cli/oauth_creds.json",
             ".gemini/antigravity-cli/antigravity-oauth-token",
             ".gemini/antigravity-cli/google_credentials",
             ".gemini/antigravity/google_credentials",
@@ -133,6 +129,10 @@ enum AntigravityProvider {
                 }
             }
         }
+        let user = NSUserName()
+        if let d = Secrets.keychainPassword(service: "gemini", account: "antigravity") { blobs.append(d) }
+        if let d = Secrets.keychainPassword(service: "gemini") { blobs.append(d) }
+        if let d = Secrets.keychainPassword(service: "Antigravity Safe Storage", account: user) { blobs.append(d) }
         return blobs
     }
 

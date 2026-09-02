@@ -17,19 +17,23 @@ This is an `LSUIElement` accessory app (no Dock icon). Click any badge to open a
   - 38×38pt circular badges with high-contrast active progress ring tracks.
   - High-legibility monospaced percentage readouts (`13pt .monospacedDigit()`) placed directly below each badge.
   - Interactive hover scaling and spring animations.
+- **Hover Slide-In & Focusout Slide-Out**: Moving your mouse over the collapsed edge tab automatically slides the full dock into view; leaving the dock automatically stows it back into the edge tab after a 350ms grace period.
+- **Pin / Always-Open Mode**: Click the pin icon in the bottom toolbar (or toggle in Settings) to keep the sidebar pinned open permanently.
 - **Official Brand Vector Marks (`SVGPathEngine`)**:
   - 🟠 **Anthropic Claude**: Official 12-arm sunburst / asterisk vector mark (`#FA5A2A`).
   - 🟢 **xAI Grok Build**: Official dynamic sliced ring logo with flared top-right blade wing and tapered fin (`#10B981`).
   - 🟡 **Google Antigravity**: Multi-faceted crystal snowflake starburst mark (`#D5F01F`).
   - 🔵 **GitHub Copilot**: Official GitHub Primer Octicons astronaut robot head with visor & eye cutouts (`#3B82F6`).
   - Built with a pure Swift zero-dependency SVG path parsing engine (`SVGPathEngine`).
-- **Collapsible Edge Tab**: Click the collapse handle to stow the sidebar into a minimal 18pt edge tab (`CollapsedScoopShape`), or click the chevron to expand.
-- **Integrated Settings Popover**: Dedicated gear button for "Start at Login" configuration (`SMAppService`) and quick app termination.
+- **Collapsible Edge Tab**: Click the collapse handle to stow the sidebar into a minimal 18pt edge tab (`CollapsedScoopShape`), or hover to expand.
+- **Integrated Settings Popover**: Dedicated gear button for "Start at Login" configuration (`SMAppService`), Auto-Hide preferences, and quick app termination.
 - **Detailed Quota Popovers**:
   - Live progress bars with color-coded utilization thresholds (<50% Green, 50-80% Orange, >80% Red).
   - Humanized reset countdowns (e.g. *"Resets in 45 min"*, *"Resets Mon 10:00 AM"*).
   - Multi-tier bucket breakdowns (session limits, weekly caps, premium interactions).
+  - Active popover protection keeps the dock open while reading details.
 - **Multi-Monitor Awareness**: Automatically repositions and anchors flush to the active screen on display configuration changes.
+- **Native App Icon**: High-resolution macOS application icon bundle (`AppIcon.icns`).
 
 ---
 
@@ -64,24 +68,25 @@ xattr -d com.apple.quarantine dist/UsageSidebar.app
 
 ---
 
-## 🔑 Keychain & Credential Access
+## 🔑 Persistent Non-Interactive Authentication
 
-On first launch, macOS may display a system dialog requesting permission to read credentials saved by other CLI tools. Click **Always Allow** (selecting *Allow* only grants temporary access for that single process):
+Usage Sidebar resolves existing session and OAuth credentials directly from local config files first, eliminating modal macOS Keychain password authorization dialogs on launch:
 
-| Prompt Service | Used For |
-|---|---|
-| `Claude Code-credentials` | Claude Code OAuth JSON |
-| `gemini` (account `antigravity`) | Antigravity CLI OAuth JSON |
-| `gh:github.com` | GitHub CLI token (if not in `~/.config/gh/hosts.yml`) |
+| Provider | Primary Local Path | Fallback (Silent Keychain) |
+|---|---|---|
+| **Claude Code** | `~/.claude/.credentials.json` | `Claude Code-credentials` (silent `LAContext`) |
+| **Grok Build** | `~/.grok/auth.json` | — |
+| **Google Antigravity** | `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.gemini/oauth_creds.json`, or local Language Server | `gemini` (account `antigravity`) |
+| **GitHub Copilot** | `~/.config/gh/hosts.yml` or `gh auth token` | `gh:github.com` |
 
-If you deny access, that ring displays **—** and clicking the badge provides a direct hint to authenticate with that tool.
+Keychain queries use `kSecUseAuthenticationContext` with `LAContext.interactionNotAllowed = true` to guarantee silent execution.
 
 ---
 
 ## 📡 Where Credentials Come From
 
 1. **Anthropic Claude**:
-   - Reads from Keychain `Claude Code-credentials`, fallback to `~/.claude/.credentials.json`.
+   - Reads `~/.claude/.credentials.json`, fallback to Keychain `Claude Code-credentials`.
    - `GET https://api.anthropic.com/api/oauth/usage` with header `anthropic-beta: oauth-2025-04-20`.
    - Ring tracks the 5-hour rolling session percentage. Popover details current session + weekly all-models utilization.
    - *Note: Does not refresh OAuth tokens to prevent rotating Claude Code's active session.*
@@ -90,12 +95,12 @@ If you deny access, that ring displays **—** and clicking the badge provides a
    - `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` with `x-grok-client-surface: grok-build` and `X-XAI-Token-Auth: xai-grok-cli`.
    - Ring tracks `config.creditUsagePercent`. Popover shows weekly quota and billing period reset date.
 3. **Google Antigravity**:
-   - Reads from Keychain `gemini`/`antigravity`, `~/Library/Application Support/Antigravity`, `~/.gemini/antigravity-cli/antigravity-oauth-token`, or `~/.agy`.
+   - Reads from `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.gemini/oauth_creds.json`, `~/.agy`, or `~/Library/Application Support/Antigravity`.
    - Primary: `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`.
    - Fallback: Connects via local loopback language server (`RetrieveUserQuotaSummary` / `GetUserStatus` on `127.0.0.1` via TLS with `LocalTrustDelegate`).
    - Ring displays the scarcest quota bucket percentage (e.g. Gemini 5-hour or weekly model cap).
 4. **GitHub Copilot**:
-   - Reads from `gh auth token` or `~/.config/gh/hosts.yml`.
+   - Reads from `~/.config/gh/hosts.yml` or `gh auth token`.
    - `GET https://api.github.com/copilot_internal/user` → `quota_snapshots`.
    - Ring displays the limited bucket (`premium_interactions` or `chat`). Unlimited buckets display **∞** / **Unlimited**.
 

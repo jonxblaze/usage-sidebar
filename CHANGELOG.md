@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.0] - 2026-09-01
+
+### Added
+- **Hover Slide-In & Focusout Slide-Out**:
+  - Hovering over the collapsed edge tab automatically slides the full quota dock into view with a smooth spring animation.
+  - Moving the cursor out of the sidebar area starts a 350ms debounced grace period and automatically stows the dock back into the edge tab.
+  - Active popover protection: auto-collapse is suspended while reading detailed breakdowns in a provider popover or adjusting settings.
+- **Pin / Always-Open Dock Mode**:
+  - Added a dedicated Pin toggle button (`pin` / `pin.fill`) next to the settings gear at the bottom of the sidebar.
+  - Added an "Auto-Hide Sidebar" toggle in the Settings popover. When pinned (`autoHide = false`), the dock remains expanded continuously. Setting is persisted in `UserDefaults`.
+- **Application Icon & Asset Bundle**:
+  - Added official brand application icon featuring vibrant stylized telemetry artwork.
+  - Packaged multi-resolution `AppIcon.icns` (16×16 to 1024×1024@2x) and registered `CFBundleIconFile` in `Info.plist`.
+
+### Changed
+- **Persistent Non-Interactive Authentication**:
+  - Completely eliminated modal macOS Keychain password prompts on app launch and polling loops.
+  - Prioritized direct filesystem reads for existing local session/OAuth tokens (`~/.claude/.credentials.json`, `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.config/gh/hosts.yml`, `~/.grok/auth.json`) before querying Keychain.
+  - Configured `SecItemCopyMatching` with `LAContext.interactionNotAllowed = true` to guarantee silent, non-intrusive credential resolution.
+- **Refined Dock Geometry & Brand Logos**:
+  - Cleaned up right-edge dock pill curvature (18pt outer display corner radius, flat 0pt bezel anchor) with no edge artifacts.
+  - Re-anchored and centered all 4 vector brand marks within their 38×38pt widget tiles.
+
+---
+
 ## [1.1.0] - 2026-08-31
 
 ### Added

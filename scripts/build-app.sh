@@ -49,6 +49,9 @@ fi
 rm -rf "${APP}"
 mkdir -p "${MACOS}" "${CONTENTS}/Resources"
 cp "${ROOT}/Sources/Info.plist" "${CONTENTS}/Info.plist"
+if [[ -d "${ROOT}/Sources/Resources" ]]; then
+  cp -R "${ROOT}/Sources/Resources/"* "${CONTENTS}/Resources/"
+fi
 printf 'APPL????' > "${CONTENTS}/PkgInfo"
 /usr/bin/plutil -lint "${CONTENTS}/Info.plist" >/dev/null
 

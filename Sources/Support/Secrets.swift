@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Security
 
 enum Secrets {
@@ -36,18 +37,18 @@ enum Secrets {
     }
 
     static func keychainPassword(service: String, account: String? = nil) -> Data? {
-        if let data = secItem(service: service, account: account), !data.isEmpty {
-            return data
-        }
-        return securityCLI(service: service, account: account)
+        secItem(service: service, account: account)
     }
 
     private static func secItem(service: String, account: String?) -> Data? {
+        let context = LAContext()
+        context.interactionNotAllowed = true
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseAuthenticationContext as String: context,
         ]
         if let account, !account.isEmpty {
             query[kSecAttrAccount as String] = account
@@ -56,20 +57,6 @@ enum Secrets {
         let status = SecItemCopyMatching(query as CFDictionary, &out)
         guard status == errSecSuccess else { return nil }
         return out as? Data
-    }
-
-    private static func securityCLI(service: String, account: String?) -> Data? {
-        var args = ["find-generic-password", "-s", service, "-w"]
-        if let account, !account.isEmpty {
-            args.insert(contentsOf: ["-a", account], at: 3)
-        }
-        guard let stdout = try? ProcessRun.capture(
-            executable: "/usr/bin/security",
-            arguments: args,
-            timeout: 8
-        ) else { return nil }
-        let trimmed = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : Data(trimmed.utf8)
     }
 }
 

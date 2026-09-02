@@ -65,19 +65,18 @@ enum ClaudeProvider {
         )
     }
 
-    /// Keychain first (macOS Claude Code), then ~/.claude/.credentials.json.
+    /// ~/.claude/.credentials.json first, then non-interactive Keychain.
     /// Does not refresh OAuth itself — refreshing would rotate Claude Code's token.
     private static func loadAccessToken() -> String? {
-        let blobs: [Data] = {
-            var out: [Data] = []
-            if let d = Secrets.keychainPassword(service: keychainService) { out.append(d) }
-            if let d = Secrets.keychainPassword(service: keychainServiceAlt) { out.append(d) }
-            let file = Secrets.home.appendingPathComponent(".claude/.credentials.json")
-            if let d = Secrets.readFile(file) { out.append(d) }
-            return out
-        }()
-        for data in blobs {
-            if let token = token(from: data) { return token }
+        let file = Secrets.home.appendingPathComponent(".claude/.credentials.json")
+        if let d = Secrets.readFile(file), let token = token(from: d) {
+            return token
+        }
+        if let d = Secrets.keychainPassword(service: keychainService), let token = token(from: d) {
+            return token
+        }
+        if let d = Secrets.keychainPassword(service: keychainServiceAlt), let token = token(from: d) {
+            return token
         }
         return nil
     }

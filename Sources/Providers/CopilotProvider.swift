@@ -93,6 +93,7 @@ enum CopilotProvider {
 
     /// `gh auth token`, then ~/.config/gh/hosts.yml, then Keychain gh:github.com.
     private static func loadToken() -> String? {
+        if let fromFile = hostsYMLToken() { return fromFile }
         let extra = [
             "/opt/homebrew/bin",
             "/usr/local/bin",
@@ -101,13 +102,12 @@ enum CopilotProvider {
         if let out = try? ProcessRun.capture(
             executable: "/usr/bin/env",
             arguments: ["gh", "auth", "token"],
-            timeout: 8,
+            timeout: 5,
             extraPath: extra
         ) {
             let t = out.trimmingCharacters(in: .whitespacesAndNewlines)
             if !t.isEmpty, !t.contains(" ") { return t }
         }
-        if let fromFile = hostsYMLToken() { return fromFile }
         if let data = Secrets.keychainPassword(service: "gh:github.com") {
             let t = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)

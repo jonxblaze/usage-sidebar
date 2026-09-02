@@ -8,7 +8,12 @@ final class UsageStore: ObservableObject {
     @Published var grok: ProviderStatus = .loading
     @Published var antigravity: ProviderStatus = .loading
     @Published var copilot: ProviderStatus = .loading
-    @Published var expanded = false
+    @Published var expanded: Bool
+    @Published var autoHide: Bool {
+        didSet {
+            UserDefaults.standard.set(autoHide, forKey: "autoHide")
+        }
+    }
     @Published var startsAtLogin: Bool
     @Published var loginMessage: String?
 
@@ -18,6 +23,11 @@ final class UsageStore: ObservableObject {
     init(preview: Bool = false) {
         previewMode = preview
         startsAtLogin = LoginItem.isEnabled
+        let isAutoHide = UserDefaults.standard.object(forKey: "autoHide") != nil
+            ? UserDefaults.standard.bool(forKey: "autoHide")
+            : true
+        autoHide = isAutoHide
+        expanded = !isAutoHide
     }
 
     func status(for id: ProviderID) -> ProviderStatus {

@@ -99,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             panel.animator().setFrame(target, display: true)
         }
+        panel.invalidateShadow()
     }
 
     @objc func reposition() {
@@ -106,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let size = panel.frame.size
         let origin = computeOrigin(panelSize: size)
         panel.setFrameOrigin(origin)
+        panel.invalidateShadow()
     }
 
     private func computeOrigin(panelSize size: NSSize) -> NSPoint {
