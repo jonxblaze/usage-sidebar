@@ -7,7 +7,7 @@ enum ClaudeProvider {
 
     static func fetch() async -> ProviderStatus {
         do {
-            let tokens = await Task.detached(priority: .utility, operation: { loadAccessTokens() }).value
+            let tokens = await loadAccessTokens()
             guard !tokens.isEmpty else {
                 return .missingAuth(hint: ProviderID.claude.missingHint)
             }
@@ -80,7 +80,10 @@ enum ClaudeProvider {
     /// `~/.claude/.credentials.json` copy is often weeks stale and must not
     /// win just because the file exists. Does not refresh OAuth itself —
     /// refreshing would rotate Claude Code's token.
-    private static func loadAccessTokens() -> [String] {
+    ///
+    /// Do not call `/usr/bin/security -w`. Always Allow binds to `security`,
+    /// not this app, and a killed prompt is retried every poll.
+    private static func loadAccessTokens() async -> [String] {
         var candidates: [Candidate] = []
         var seen = Set<String>()
         func add(_ data: Data?) {
@@ -88,12 +91,19 @@ enum ClaudeProvider {
             guard seen.insert(parsed.token).inserted else { return }
             candidates.append(parsed)
         }
-        add(Secrets.keychainPassword(service: keychainService))
-        add(Secrets.keychainPassword(service: keychainServiceAlt))
+        let silent = await Task.detached(priority: .utility) {
+            (
+                Secrets.keychainPassword(service: keychainService),
+                Secrets.keychainPassword(service: keychainServiceAlt),
+                Secrets.readFile(Secrets.home.appendingPathComponent(".claude/.credentials.json"))
+            )
+        }.value
+        add(silent.0)
+        add(silent.1)
         if candidates.isEmpty {
-            add(securityCLIPasswordCached(service: keychainService))
+            add(await interactiveKeychain())
         }
-        add(Secrets.readFile(Secrets.home.appendingPathComponent(".claude/.credentials.json")))
+        add(silent.2)
         let now = Date()
         return candidates
             .sorted { a, b in
@@ -110,34 +120,15 @@ enum ClaudeProvider {
         var expiresAt: Date?
     }
 
-    /// `security -w` can read items silent SecItem cannot. 2s timeout so a
-    /// Keychain dialog cannot stall the poll. Cache success and "not found";
-    /// do not latch timeouts — the user may click Allow on a later poll.
-    private static var cliBlob: Data?
-    private static var cliSettled = false
+    private static var didAskKeychain = false
 
-    private static func securityCLIPasswordCached(service: String) -> Data? {
-        if cliSettled { return cliBlob }
-        let exe = "/usr/bin/security"
-        guard FileManager.default.isExecutableFile(atPath: exe) else {
-            cliSettled = true
-            return nil
-        }
-        do {
-            let raw = try ProcessRun.capture(
-                executable: exe,
-                arguments: ["find-generic-password", "-s", service, "-w"],
-                timeout: 2
-            )
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            cliBlob = trimmed.isEmpty ? nil : Data(trimmed.utf8)
-            cliSettled = true
-            return cliBlob
-        } catch ProcessRun.RunError.timeout {
-            return nil
-        } catch {
-            cliSettled = true
-            return nil
+    /// One Keychain dialog per process, on the main thread, bound to this
+    /// app so Always Allow can stick. Not retried if the user clicks Deny.
+    private static func interactiveKeychain() async -> Data? {
+        if didAskKeychain { return nil }
+        didAskKeychain = true
+        return await MainActor.run {
+            Secrets.keychainPassword(service: keychainService, interactionAllowed: true)
         }
     }
 

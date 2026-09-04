@@ -36,20 +36,26 @@ enum Secrets {
         return try? Data(contentsOf: url, options: [.mappedIfSafe])
     }
 
-    static func keychainPassword(service: String, account: String? = nil) -> Data? {
-        secItem(service: service, account: account)
+    static func keychainPassword(
+        service: String,
+        account: String? = nil,
+        interactionAllowed: Bool = false
+    ) -> Data? {
+        secItem(service: service, account: account, interactionAllowed: interactionAllowed)
     }
 
-    private static func secItem(service: String, account: String?) -> Data? {
-        let context = LAContext()
-        context.interactionNotAllowed = true
+    private static func secItem(service: String, account: String?, interactionAllowed: Bool) -> Data? {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseAuthenticationContext as String: context,
         ]
+        if !interactionAllowed {
+            let context = LAContext()
+            context.interactionNotAllowed = true
+            query[kSecUseAuthenticationContext as String] = context
+        }
         if let account, !account.isEmpty {
             query[kSecAttrAccount as String] = account
         }
