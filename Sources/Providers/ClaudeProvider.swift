@@ -7,26 +7,37 @@ enum ClaudeProvider {
 
     static func fetch() async -> ProviderStatus {
         do {
-            guard let token = await Task.detached(priority: .utility, operation: { loadAccessToken() }).value else {
+            let tokens = await Task.detached(priority: .utility, operation: { loadAccessTokens() }).value
+            guard !tokens.isEmpty else {
                 return .missingAuth(hint: ProviderID.claude.missingHint)
             }
-            let response = try await HTTP.request(
-                url: usageURL,
-                headers: [
-                    "Authorization": "Bearer \(token)",
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "anthropic-beta": "oauth-2025-04-20",
-                    "User-Agent": "claude-code/2.1.0",
-                ]
-            )
-            if response.status == 401 || response.status == 403 {
+            var lastStatus = 0
+            var sawAuthFailure = false
+            for token in tokens {
+                let response = try await HTTP.request(
+                    url: usageURL,
+                    headers: [
+                        "Authorization": "Bearer \(token)",
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                        "anthropic-beta": "oauth-2025-04-20",
+                        "User-Agent": "claude-code/2.1.260",
+                    ]
+                )
+                lastStatus = response.status
+                if response.status == 401 || response.status == 403 {
+                    sawAuthFailure = true
+                    continue
+                }
+                guard (200..<300).contains(response.status), let json = JSONMap(response.json) else {
+                    return .error("Claude usage request failed (\(response.status)).")
+                }
+                return parse(json)
+            }
+            if sawAuthFailure {
                 return .missingAuth(hint: "Claude sign-in expired. Open Claude Code so it can refresh, then this sidebar will update.")
             }
-            guard (200..<300).contains(response.status), let json = JSONMap(response.json) else {
-                return .error("Claude usage request failed (\(response.status)).")
-            }
-            return parse(json)
+            return .error("Claude usage request failed (\(lastStatus)).")
         } catch HTTP.HTTPError.rateLimited(let delay) {
             return .rateLimited(until: Date().addingTimeInterval(delay))
         } catch HTTP.HTTPError.transport {
@@ -65,30 +76,81 @@ enum ClaudeProvider {
         )
     }
 
-    /// ~/.claude/.credentials.json first, then non-interactive Keychain.
-    /// Does not refresh OAuth itself — refreshing would rotate Claude Code's token.
-    private static func loadAccessToken() -> String? {
-        let file = Secrets.home.appendingPathComponent(".claude/.credentials.json")
-        if let d = Secrets.readFile(file), let token = token(from: d) {
-            return token
+    /// Claude Code refreshes into Keychain (`Claude Code-credentials`). The
+    /// `~/.claude/.credentials.json` copy is often weeks stale and must not
+    /// win just because the file exists. Does not refresh OAuth itself —
+    /// refreshing would rotate Claude Code's token.
+    private static func loadAccessTokens() -> [String] {
+        var candidates: [Candidate] = []
+        var seen = Set<String>()
+        func add(_ data: Data?) {
+            guard let data, let parsed = parsedOAuth(from: data) else { return }
+            guard seen.insert(parsed.token).inserted else { return }
+            candidates.append(parsed)
         }
-        if let d = Secrets.keychainPassword(service: keychainService), let token = token(from: d) {
-            return token
+        add(Secrets.keychainPassword(service: keychainService))
+        add(Secrets.keychainPassword(service: keychainServiceAlt))
+        if candidates.isEmpty {
+            add(securityCLIPasswordCached(service: keychainService))
         }
-        if let d = Secrets.keychainPassword(service: keychainServiceAlt), let token = token(from: d) {
-            return token
-        }
-        return nil
+        add(Secrets.readFile(Secrets.home.appendingPathComponent(".claude/.credentials.json")))
+        let now = Date()
+        return candidates
+            .sorted { a, b in
+                let aValid = a.expiresAt.map { $0 > now } ?? true
+                let bValid = b.expiresAt.map { $0 > now } ?? true
+                if aValid != bValid { return aValid && !bValid }
+                return (a.expiresAt ?? .distantPast) > (b.expiresAt ?? .distantPast)
+            }
+            .map(\.token)
     }
 
-    private static func token(from data: Data) -> String? {
-        let raw = data
-        let text = String(data: raw, encoding: .utf8) ?? ""
+    private struct Candidate {
+        var token: String
+        var expiresAt: Date?
+    }
+
+    /// `security -w` can read items silent SecItem cannot. 2s timeout so a
+    /// Keychain dialog cannot stall the poll. Cache success and "not found";
+    /// do not latch timeouts — the user may click Allow on a later poll.
+    private static var cliBlob: Data?
+    private static var cliSettled = false
+
+    private static func securityCLIPasswordCached(service: String) -> Data? {
+        if cliSettled { return cliBlob }
+        let exe = "/usr/bin/security"
+        guard FileManager.default.isExecutableFile(atPath: exe) else {
+            cliSettled = true
+            return nil
+        }
+        do {
+            let raw = try ProcessRun.capture(
+                executable: exe,
+                arguments: ["find-generic-password", "-s", service, "-w"],
+                timeout: 2
+            )
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            cliBlob = trimmed.isEmpty ? nil : Data(trimmed.utf8)
+            cliSettled = true
+            return cliBlob
+        } catch ProcessRun.RunError.timeout {
+            return nil
+        } catch {
+            cliSettled = true
+            return nil
+        }
+    }
+
+    private static func parsedOAuth(from data: Data) -> Candidate? {
+        let text = String(data: data, encoding: .utf8) ?? ""
         let jsonData = Data(text.trimmingCharacters(in: .whitespacesAndNewlines).utf8)
         guard let obj = try? JSONSerialization.jsonObject(with: jsonData) else { return nil }
         let root = JSONMap(obj)
         let oauth = root?.map("claudeAiOauth", "claude_ai_oauth") ?? root
         guard let access = oauth?.string("accessToken", "access_token") else { return nil }
-        return access
+        return Candidate(
+            token: access,
+            expiresAt: DateParse.date(from: oauth?.any("expiresAt", "expires_at"))
+        )
     }
 }

@@ -43,12 +43,15 @@ enum GrokProvider {
 
     private static func parse(_ json: JSONMap) -> ProviderStatus {
         let config = json.map("config") ?? json
-        let percent = config.double("creditUsagePercent", "credit_usage_percent")
+        let grokBuild = productPercent(config, named: "GrokBuild")
+        let unified = config.double("creditUsagePercent", "credit_usage_percent")
+        let percent = grokBuild ?? unified
         let period = config.map("currentPeriod", "current_period")
         let end = DateParse.date(from: period?.any("end"))
             ?? DateParse.date(from: config.any("billingPeriodEnd", "billing_period_end"))
         let periodType = period?.string("type", "periodType") ?? ""
         let title: String = {
+            if grokBuild != nil { return "Grok Build" }
             if periodType.uppercased().contains("WEEK") { return "Weekly" }
             if periodType.uppercased().contains("MONTH") { return "Monthly" }
             return "Weekly"
@@ -68,6 +71,21 @@ enum GrokProvider {
             rows: [row],
             detail: nil
         ))
+    }
+
+    private static func productPercent(_ config: JSONMap, named name: String) -> Double? {
+        guard let products = config.array("productUsage", "product_usage") else { return nil }
+        for item in products {
+            guard let map = JSONMap(item) else { continue }
+            let product = map.string("product") ?? ""
+            guard product.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame else {
+                continue
+            }
+            if let value = map.double("usagePercent", "usage_percent") {
+                return value
+            }
+        }
+        return nil
     }
 
     private static func loadToken() -> String? {

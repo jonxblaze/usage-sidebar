@@ -75,7 +75,12 @@ final class UsageStore: ObservableObject {
             case .rateLimited(let until):
                 let wait = max(until.timeIntervalSinceNow, 30)
                 await sleep(wait)
-            case .error, .missingAuth:
+            case .missingAuth:
+                // Credentials can appear the moment Claude/Grok refresh a token.
+                // Do not stretch this out to 5 minutes.
+                interval = 60
+                await sleep(60)
+            case .error:
                 interval = min(max(interval, 60) * 1.5, 300)
                 await sleep(interval)
             default:

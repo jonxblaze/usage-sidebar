@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Claude Code quota**: live OAuth now lives in Keychain (`Claude Code-credentials`). The sidebar was preferring a stale `~/.claude/.credentials.json` (often weeks old), getting HTTP 401, and showing **—**. It now prefers the unexpired Keychain token and skips 401/403 sources instead of giving up on the first one.
+- **Missing-auth backoff**: a 401 no longer ramps the poll interval to 5 minutes, so a Grok/Claude token refresh is picked up on the next 60s cycle.
+
+---
+
 ## [1.2.0] - 2026-09-01
 
 ### Added
