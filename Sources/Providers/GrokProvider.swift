@@ -43,49 +43,66 @@ enum GrokProvider {
 
     private static func parse(_ json: JSONMap) -> ProviderStatus {
         let config = json.map("config") ?? json
-        let grokBuild = productPercent(config, named: "GrokBuild")
+        // Grok `/usage` is unified SuperGrok weekly credits, not the
+        // GrokBuild-only product slice (those can differ by several points).
         let unified = config.double("creditUsagePercent", "credit_usage_percent")
-        let percent = grokBuild ?? unified
         let period = config.map("currentPeriod", "current_period")
         let end = DateParse.date(from: period?.any("end"))
             ?? DateParse.date(from: config.any("billingPeriodEnd", "billing_period_end"))
         let periodType = period?.string("type", "periodType") ?? ""
-        let title: String = {
-            if grokBuild != nil { return "Grok Build" }
-            if periodType.uppercased().contains("WEEK") { return "Weekly" }
+        let weeklyTitle: String = {
             if periodType.uppercased().contains("MONTH") { return "Monthly" }
             return "Weekly"
         }()
-        let row = UsageRow(
-            title: title,
-            resetsAt: end,
-            percentUsed: percent.map { UsageMath.percent(fromRaw: $0) },
-            unlimited: false
-        )
-        if percent == nil && end == nil {
+
+        var rows: [UsageRow] = []
+        if let unified {
+            rows.append(UsageRow(
+                title: weeklyTitle,
+                resetsAt: end,
+                percentUsed: alreadyPercent(unified),
+                unlimited: false
+            ))
+        }
+        if let products = config.array("productUsage", "product_usage") {
+            for item in products {
+                guard let map = JSONMap(item),
+                      let name = map.string("product"),
+                      let raw = map.double("usagePercent", "usage_percent") else { continue }
+                rows.append(UsageRow(
+                    title: productTitle(name),
+                    resetsAt: end,
+                    percentUsed: alreadyPercent(raw),
+                    unlimited: false
+                ))
+            }
+        }
+
+        let ring = rows.first?.percentUsed
+        if ring == nil && end == nil {
             return .error("Grok billing response had no creditUsagePercent or period end.")
         }
         return .ok(UsageSnapshot(
-            ringPercent: row.percentUsed,
+            ringPercent: ring,
             ringUnlimited: false,
-            rows: [row],
+            rows: rows,
             detail: nil
         ))
     }
 
-    private static func productPercent(_ config: JSONMap, named name: String) -> Double? {
-        guard let products = config.array("productUsage", "product_usage") else { return nil }
-        for item in products {
-            guard let map = JSONMap(item) else { continue }
-            let product = map.string("product") ?? ""
-            guard product.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame else {
-                continue
-            }
-            if let value = map.double("usagePercent", "usage_percent") {
-                return value
-            }
+    /// Grok's billing fields are already 0...100. Do not run UsageMath.percent
+    /// (that treats 1.0 as "100% used").
+    private static func alreadyPercent(_ raw: Double) -> Double {
+        min(max(raw, 0), 999)
+    }
+
+    private static func productTitle(_ name: String) -> String {
+        switch name.lowercased() {
+        case "grokbuild": return "Grok Build"
+        case "grokchat": return "Grok Chat"
+        case "groktasks": return "Grok Tasks"
+        default: return name
         }
-        return nil
     }
 
     private static func loadToken() -> String? {

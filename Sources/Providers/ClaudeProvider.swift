@@ -82,7 +82,9 @@ enum ClaudeProvider {
     /// refreshing would rotate Claude Code's token.
     ///
     /// Do not call `/usr/bin/security -w`. Always Allow binds to `security`,
-    /// not this app, and a killed prompt is retried every poll.
+    /// not this app, and a killed prompt is retried every poll. Builds pin
+    /// designated requirement to the bundle id so Always Allow survives
+    /// rebuilds; silent reads must use UIFail so polls cannot dialog.
     private static func loadAccessTokens() async -> [String] {
         var candidates: [Candidate] = []
         var seen = Set<String>()

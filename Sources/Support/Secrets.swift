@@ -52,6 +52,11 @@ enum Secrets {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         if !interactionAllowed {
+            // ACL "login password / Always Allow" is not LocalAuthentication.
+            // LAContext.interactionNotAllowed does not suppress that sheet, so
+            // a 60s poll still prompts. Raw "fail" is kSecUseAuthenticationUIFail
+            // without the deprecated macOS 11 symbol.
+            query[kSecUseAuthenticationUI as String] = "fail"
             let context = LAContext()
             context.interactionNotAllowed = true
             query[kSecUseAuthenticationContext as String] = context

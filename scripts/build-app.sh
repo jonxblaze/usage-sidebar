@@ -83,9 +83,17 @@ if ! file "${MACOS}/UsageSidebar" | grep -q "Mach-O"; then
 fi
 
 # Unsigned + quarantine is what macOS reports as "damaged or incomplete".
+# Default ad-hoc designated requirement is a CDHash, which changes every
+# compile, so Keychain "Always Allow" never sticks. Pin DR to the bundle
+# id so one Always Allow survives rebuilds.
+BUNDLE_ID="$(/usr/bin/plutil -extract CFBundleIdentifier raw "${CONTENTS}/Info.plist")"
 xattr -cr "${APP}" 2>/dev/null || true
-codesign --force --deep --sign - "${APP}"
+codesign --force --deep --sign - \
+  --identifier "${BUNDLE_ID}" \
+  -r "=designated => identifier \"${BUNDLE_ID}\"" \
+  "${APP}"
 xattr -cr "${APP}" 2>/dev/null || true
+echo "Signed ad-hoc with designated => identifier \"${BUNDLE_ID}\""
 
 echo "Built ${APP}"
 echo "Run with:  open \"${APP}\""

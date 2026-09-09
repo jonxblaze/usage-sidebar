@@ -70,23 +70,25 @@ xattr -d com.apple.quarantine dist/UsageSidebar.app
 
 ## 🔑 Persistent Non-Interactive Authentication
 
-Usage Sidebar resolves existing session and OAuth credentials directly from local config files first, eliminating modal macOS Keychain password authorization dialogs on launch:
+Usage Sidebar reads tokens other tools already stored. Claude Code's **live** OAuth is Keychain item `Claude Code-credentials` (the `~/.claude/.credentials.json` copy is often weeks stale). That is a cross-app Keychain read, so macOS will ask for your login password **once**.
 
-| Provider | Primary Local Path | Fallback (Silent Keychain) |
+Click **Always Allow**. Rebuilds keep the same designated requirement (`identifier "com.jonb.UsageSidebar"`), so that grant survives. "Allow" only authorizes one read; the next launch will ask again.
+
+Silent queries set `kSecUseAuthenticationUIFail` so the 60s poll cannot show a password sheet. If silent access fails, there is one in-app Keychain prompt per launch, bound to this app (not `/usr/bin/security`).
+
+| Provider | Primary | Fallback |
 |---|---|---|
-| **Claude Code** | `~/.claude/.credentials.json` | `Claude Code-credentials` (silent `LAContext`) |
+| **Claude Code** | Keychain `Claude Code-credentials` (unexpired) | `~/.claude/.credentials.json` |
 | **Grok Build** | `~/.grok/auth.json` | — |
 | **Google Antigravity** | `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.gemini/oauth_creds.json`, or local Language Server | `gemini` (account `antigravity`) |
 | **GitHub Copilot** | `~/.config/gh/hosts.yml` or `gh auth token` | `gh:github.com` |
-
-Keychain queries use `kSecUseAuthenticationContext` with `LAContext.interactionNotAllowed = true` to guarantee silent execution.
 
 ---
 
 ## 📡 Where Credentials Come From
 
 1. **Anthropic Claude**:
-   - Reads `~/.claude/.credentials.json`, fallback to Keychain `Claude Code-credentials`.
+   - Reads Keychain `Claude Code-credentials` first (live token), then `~/.claude/.credentials.json` if it is still valid.
    - `GET https://api.anthropic.com/api/oauth/usage` with header `anthropic-beta: oauth-2025-04-20`.
    - Ring tracks the 5-hour rolling session percentage. Popover details current session + weekly all-models utilization.
    - *Note: Does not refresh OAuth tokens to prevent rotating Claude Code's active session.*
