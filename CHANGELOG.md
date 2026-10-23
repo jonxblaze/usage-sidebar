@@ -8,11 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+---
+
+## [1.2.1] - 2026-10-23
+
 ### Fixed
 - **Claude Code quota**: live OAuth now lives in Keychain (`Claude Code-credentials`). The sidebar was preferring a stale `~/.claude/.credentials.json` (often weeks old), getting HTTP 401, and showing **—**. It now prefers the unexpired Keychain token and skips 401/403 sources instead of giving up on the first one.
 - **Missing-auth backoff**: a 401 no longer ramps the poll interval to 5 minutes, so a Grok/Claude token refresh is picked up on the next 60s cycle.
-- **Keychain password loop**: dropped the `/usr/bin/security -w` fallback. It showed a Mac-password dialog bound to `security` (not this app), killed the process after 2s so Always Allow never saved, then retried every 60s. Silent SecItem first; one in-app Keychain prompt per launch if needed.
-- **Keychain Always Allow**: ad-hoc signing used a CDHash designated requirement, so Always Allow died on every rebuild and the login-password sheet came back. Builds now pin `designated => identifier "com.jonb.UsageSidebar"`. Silent reads use `kSecUseAuthenticationUIFail` so the 60s poll cannot show a dialog. Click **Always Allow** once on the next prompt.
+- **Keychain password loop**: the 60s poll was calling `SecItemCopyMatching` on items (`gemini`, `Claude Code-credentials`) whose partition list trusts `/usr/bin/security`, not this app. The "silent" flag was the literal string `"fail"` instead of `kSecUseAuthenticationUISkip`, and that skip flag still does not suppress the login-password sheet. Reads now go through `security find-generic-password -w` (returns in ~20ms, no sheet). If that call blocks, it is killed once and not retried.
 - **Grok Build mark**: replaced the simplified Lobe 24×24 ring path with the official filled glyph from `grok.com/images/favicon.svg`.
 - **Grok quota**: ring now follows Grok `/usage` (`creditUsagePercent`, unified weekly SuperGrok credits). The Grok Build / Chat / Tasks product split is in the popover — those slices do not sum to, and are not, the `/usage` number.
 

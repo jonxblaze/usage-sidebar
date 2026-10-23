@@ -3,14 +3,49 @@ import SwiftUI
 
 struct SidebarRoot: View {
     @ObservedObject var store: UsageStore
-    @State private var settingsOpen = false
-    @State private var activePopoverID: ProviderID? = nil
-    @State private var gearHovered = false
-    @State private var pinHovered = false
-    @State private var collapseHovered = false
-    @State private var tabHovered = false
-    @State private var isMouseInsideSidebar = false
-    @State private var exitTimerTask: Task<Void, Never>? = nil
+    // Stored State, not @State. @State is a SwiftUIMacros macro, and Command
+    // Line Tools do not ship that plugin. This is the same storage the
+    // property wrapper used to synthesize.
+    private var settingsOpen: Bool {
+        get { _settingsOpen.wrappedValue }
+        nonmutating set { _settingsOpen.wrappedValue = newValue }
+    }
+    private var _settingsOpen = State(wrappedValue: false)
+    private var activePopoverID: ProviderID? {
+        get { _activePopoverID.wrappedValue }
+        nonmutating set { _activePopoverID.wrappedValue = newValue }
+    }
+    private var _activePopoverID = State<ProviderID?>(wrappedValue: nil)
+    private var gearHovered: Bool {
+        get { _gearHovered.wrappedValue }
+        nonmutating set { _gearHovered.wrappedValue = newValue }
+    }
+    private var _gearHovered = State(wrappedValue: false)
+    private var pinHovered: Bool {
+        get { _pinHovered.wrappedValue }
+        nonmutating set { _pinHovered.wrappedValue = newValue }
+    }
+    private var _pinHovered = State(wrappedValue: false)
+    private var collapseHovered: Bool {
+        get { _collapseHovered.wrappedValue }
+        nonmutating set { _collapseHovered.wrappedValue = newValue }
+    }
+    private var _collapseHovered = State(wrappedValue: false)
+    private var tabHovered: Bool {
+        get { _tabHovered.wrappedValue }
+        nonmutating set { _tabHovered.wrappedValue = newValue }
+    }
+    private var _tabHovered = State(wrappedValue: false)
+    private var isMouseInsideSidebar: Bool {
+        get { _isMouseInsideSidebar.wrappedValue }
+        nonmutating set { _isMouseInsideSidebar.wrappedValue = newValue }
+    }
+    private var _isMouseInsideSidebar = State(wrappedValue: false)
+    private var exitTimerTask: Task<Void, Never>? {
+        get { _exitTimerTask.wrappedValue }
+        nonmutating set { _exitTimerTask.wrappedValue = newValue }
+    }
+    private var _exitTimerTask = State<Task<Void, Never>?>(wrappedValue: nil)
 
     private var hasActivePopover: Bool {
         settingsOpen || activePopoverID != nil
@@ -34,7 +69,7 @@ struct SidebarRoot: View {
                 RingCell(
                     id: id,
                     status: store.status(for: id),
-                    activePopoverID: $activePopoverID
+                    activePopoverID: _activePopoverID.projectedValue
                 )
             }
 
@@ -98,7 +133,7 @@ struct SidebarRoot: View {
                 }
                 .buttonStyle(.plain)
                 .onHover { gearHovered = $0 }
-                .popover(isPresented: $settingsOpen, arrowEdge: .leading) {
+                .popover(isPresented: _settingsOpen.projectedValue, arrowEdge: .leading) {
                     SettingsPopover(store: store)
                 }
                 .help("Settings")
@@ -207,7 +242,11 @@ struct RingCell: View {
     let id: ProviderID
     let status: ProviderStatus
     @Binding var activePopoverID: ProviderID?
-    @State private var hover = false
+    private var hover: Bool {
+        get { _hover.wrappedValue }
+        nonmutating set { _hover.wrappedValue = newValue }
+    }
+    private var _hover = State(wrappedValue: false)
 
     private var isOpen: Binding<Bool> {
         Binding(

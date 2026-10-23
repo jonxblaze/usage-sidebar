@@ -1,0 +1,4 @@
+#!/bin/sh
+# Version + changelog bump. Installed into .git/hooks by scripts/install-hooks.sh.
+root=$(git rev-parse --show-toplevel) || exit 1
+exec python3 "$root/scripts/bump-release.py" pre-commit

@@ -81,10 +81,8 @@ enum ClaudeProvider {
     /// win just because the file exists. Does not refresh OAuth itself —
     /// refreshing would rotate Claude Code's token.
     ///
-    /// Do not call `/usr/bin/security -w`. Always Allow binds to `security`,
-    /// not this app, and a killed prompt is retried every poll. Builds pin
-    /// designated requirement to the bundle id so Always Allow survives
-    /// rebuilds; silent reads must use UIFail so polls cannot dialog.
+    /// `Secrets.keychainPassword` reads through `/usr/bin/security`, which
+    /// this item already trusts. No login-password sheet on the poll.
     private static func loadAccessTokens() async -> [String] {
         var candidates: [Candidate] = []
         var seen = Set<String>()
@@ -102,9 +100,6 @@ enum ClaudeProvider {
         }.value
         add(silent.0)
         add(silent.1)
-        if candidates.isEmpty {
-            add(await interactiveKeychain())
-        }
         add(silent.2)
         let now = Date()
         return candidates
@@ -120,18 +115,6 @@ enum ClaudeProvider {
     private struct Candidate {
         var token: String
         var expiresAt: Date?
-    }
-
-    private static var didAskKeychain = false
-
-    /// One Keychain dialog per process, on the main thread, bound to this
-    /// app so Always Allow can stick. Not retried if the user clicks Deny.
-    private static func interactiveKeychain() async -> Data? {
-        if didAskKeychain { return nil }
-        didAskKeychain = true
-        return await MainActor.run {
-            Secrets.keychainPassword(service: keychainService, interactionAllowed: true)
-        }
     }
 
     private static func parsedOAuth(from data: Data) -> Candidate? {

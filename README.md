@@ -66,15 +66,17 @@ xattr -d com.apple.quarantine dist/UsageSidebar.app
 
 > **Tip**: Copying `UsageSidebar.app` to `/Applications` makes login items (`SMAppService`) more reliable across reboots.
 
+### Version and wiki
+
+`bash scripts/install-hooks.sh` once per clone. The pre-commit hook then bumps `CFBundleShortVersionString` (patch) and `CFBundleVersion`, and moves `CHANGELOG.md`'s `[Unreleased]` notes under that version. The post-commit hook updates the wiki page `entities/usage-sidebar`. Put `[skip version]` in a `git commit -m` message, or set `USAGE_SIDEBAR_SKIP_VERSION=1`, to commit without a bump. Amends and merges do not bump.
+
 ---
 
 ## 🔑 Persistent Non-Interactive Authentication
 
-Usage Sidebar reads tokens other tools already stored. Claude Code's **live** OAuth is Keychain item `Claude Code-credentials` (the `~/.claude/.credentials.json` copy is often weeks stale). That is a cross-app Keychain read, so macOS will ask for your login password **once**.
+Usage Sidebar reads tokens other tools already stored. Claude Code's **live** OAuth is Keychain item `Claude Code-credentials` (the `~/.claude/.credentials.json` copy is often weeks stale).
 
-Click **Always Allow**. Rebuilds keep the same designated requirement (`identifier "com.jonb.UsageSidebar"`), so that grant survives. "Allow" only authorizes one read; the next launch will ask again.
-
-Silent queries set `kSecUseAuthenticationUIFail` so the 60s poll cannot show a password sheet. If silent access fails, there is one in-app Keychain prompt per launch, bound to this app (not `/usr/bin/security`).
+Those items trust `/usr/bin/security` (`apple-tool:`), not this app. The sidebar reads them through that tool, so macOS does not ask for your login password on launch or on the 60s poll. A direct Keychain read from the app raises that sheet, and Always Allow is wiped the next time Claude or Antigravity rewrites the item.
 
 | Provider | Primary | Fallback |
 |---|---|---|
