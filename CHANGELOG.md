@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.7] - 2026-10-31
+
+### Fixed
+- **Claude ring after a reset**: usage of 2% or less no longer shows as 100%. The app treated those low values as fractions, so 2% became 200%. Anthropic always reports 0 to 100.
+
+---
+
 ## [1.2.6] - 2026-10-31
 
 ### Changed
