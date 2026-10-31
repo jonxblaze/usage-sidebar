@@ -263,9 +263,12 @@ enum DateParse {
 }
 
 enum BarTone {
-    static func color(forPercent percent: Double) -> Color {
-        if percent < 50 { return Color(red: 0.30, green: 0.82, blue: 0.45) }
-        if percent < 80 { return Color(red: 0.95, green: 0.62, blue: 0.20) }
-        return Color(red: 0.93, green: 0.32, blue: 0.28)
-    }
+    /// Green at 0% to red at 100%, for painting across a bar's full width.
+    static let stops: [Gradient.Stop] = [
+        .init(color: Color(red: 0.20, green: 0.95, blue: 0.45), location: 0),
+        .init(color: Color(red: 1.00, green: 0.90, blue: 0.15), location: 0.33),
+        .init(color: Color(red: 1.00, green: 0.58, blue: 0.10), location: 0.66),
+        .init(color: Color(red: 1.00, green: 0.25, blue: 0.22), location: 1),
+    ]
+    static let gradient = LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing)
 }
