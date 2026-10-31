@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.2] - 2026-10-31
+
+### Added
+- **Hover usage card**: hovering an agent now opens its usage popover, and it closes when the mouse leaves. A click still keeps it open. Replaces the name tooltip, since the popover shows the name.
+
+---
+
 ## [1.2.1] - 2026-10-23
 
 ### Fixed

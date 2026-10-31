@@ -16,6 +16,7 @@ struct SidebarRoot: View {
         nonmutating set { _activePopoverID.wrappedValue = newValue }
     }
     private var _activePopoverID = State<ProviderID?>(wrappedValue: nil)
+    private var _pinnedPopoverID = State<ProviderID?>(wrappedValue: nil)
     private var gearHovered: Bool {
         get { _gearHovered.wrappedValue }
         nonmutating set { _gearHovered.wrappedValue = newValue }
@@ -69,7 +70,8 @@ struct SidebarRoot: View {
                 RingCell(
                     id: id,
                     status: store.status(for: id),
-                    activePopoverID: _activePopoverID.projectedValue
+                    activePopoverID: _activePopoverID.projectedValue,
+                    pinnedPopoverID: _pinnedPopoverID.projectedValue
                 )
             }
 
@@ -242,11 +244,18 @@ struct RingCell: View {
     let id: ProviderID
     let status: ProviderStatus
     @Binding var activePopoverID: ProviderID?
+    /// The cell a click is holding open. Hover-opened popovers close on exit.
+    @Binding var pinnedPopoverID: ProviderID?
     private var hover: Bool {
         get { _hover.wrappedValue }
         nonmutating set { _hover.wrappedValue = newValue }
     }
     private var _hover = State(wrappedValue: false)
+    private var hoverTask: Task<Void, Never>? {
+        get { _hoverTask.wrappedValue }
+        nonmutating set { _hoverTask.wrappedValue = newValue }
+    }
+    private var _hoverTask = State<Task<Void, Never>?>(wrappedValue: nil)
 
     private var isOpen: Binding<Bool> {
         Binding(
@@ -256,16 +265,36 @@ struct RingCell: View {
                     activePopoverID = id
                 } else if activePopoverID == id {
                     activePopoverID = nil
+                    pinnedPopoverID = nil
                 }
             }
         )
     }
 
+    /// Delay both ways so passing over a ring does not flash its popover.
+    private func handleHover(_ hovering: Bool) {
+        hover = hovering
+        hoverTask?.cancel()
+        hoverTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else { return }
+            if hovering {
+                if pinnedPopoverID != id { pinnedPopoverID = nil }
+                activePopoverID = id
+            } else if activePopoverID == id, pinnedPopoverID != id {
+                activePopoverID = nil
+            }
+        }
+    }
+
     var body: some View {
         Button {
-            if activePopoverID == id {
+            hoverTask?.cancel()
+            if pinnedPopoverID == id {
+                pinnedPopoverID = nil
                 activePopoverID = nil
             } else {
+                pinnedPopoverID = id
                 activePopoverID = id
             }
         } label: {
@@ -296,11 +325,10 @@ struct RingCell: View {
             .animation(.spring(response: 0.25, dampingFraction: 0.72), value: hover)
         }
         .buttonStyle(.plain)
-        .onHover { hover = $0 }
+        .onHover { handleHover($0) }
         .popover(isPresented: isOpen, arrowEdge: .leading) {
             UsagePopover(id: id, status: status)
         }
-        .help(id.displayName)
     }
 }
 

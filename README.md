@@ -4,7 +4,7 @@
 
 It never invents numbers: missing or expired credentials show **—**, and SwiftUI previews are labeled **Sample**.
 
-This is an `LSUIElement` accessory app (no Dock icon). Click any badge to open a detailed flyout popover with quota breakdown and reset timers. Click the bottom handle to collapse the sidebar into a slim edge tab, or click the settings gear to toggle launch at login and quit.
+This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a detailed flyout popover with quota breakdown and reset timers, or click it to keep the popover open. Click the bottom handle to collapse the sidebar into a slim edge tab, or click the settings gear to toggle launch at login and quit.
 
 > **Unofficial Utility**: Reuses tokens and credentials already stored locally by those tools and queries the same usage endpoints they use internally. Credentials and secrets are never printed or transmitted to third parties.
 
