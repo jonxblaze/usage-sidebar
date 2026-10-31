@@ -67,6 +67,10 @@ xattr -d com.apple.quarantine dist/UsageSidebar.app
 
 > **Tip**: Copying `UsageSidebar.app` to `/Applications` makes login items (`SMAppService`) more reliable across reboots.
 
+### Tests
+
+`bash scripts/test.sh` compiles the non-UI sources and runs `Tests/main.swift`.
+
 ### Versioning
 
 `bash scripts/install-hooks.sh` once per clone. The pre-commit hook then bumps `CFBundleShortVersionString` (patch) and `CFBundleVersion`, and moves `CHANGELOG.md`'s `[Unreleased]` notes under that version. Put `[skip version]` in a `git commit -m` message, or set `USAGE_SIDEBAR_SKIP_VERSION=1`, to commit without a bump. Amends and merges do not bump.

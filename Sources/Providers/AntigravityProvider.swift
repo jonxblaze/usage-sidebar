@@ -47,10 +47,11 @@ enum AntigravityProvider {
         }
     }
 
-    private static func parseSummary(_ json: JSONMap) -> ProviderStatus? {
+    static func parseSummary(_ json: JSONMap) -> ProviderStatus? {
         let root = json.map("response") ?? json
         guard let groups = root.array("groups") else { return nil }
         var rows: [UsageRow] = []
+        var planWeekly: Double?
         for groupAny in groups {
             guard let group = JSONMap(groupAny) else { continue }
             let groupName = group.string("displayName", "display_name") ?? "Gemini"
@@ -65,22 +66,26 @@ enum AntigravityProvider {
                 guard let remaining = bucket.double("remainingFraction", "remaining_fraction"),
                       remaining >= 0, remaining <= 1 else { continue }
                 let reset = DateParse.date(from: bucket.any("resetTime", "reset_time"))
-                let prefix = groupName.localizedCaseInsensitiveContains("gemini") ? "" : "\(groupName) "
+                let isPlanBucket = id == "gemini-weekly" || id == "gemini-5h"
+                let prefix = isPlanBucket ? "" : "\(groupName) "
                 let title = prefix + (isWeekly ? "Weekly" : "Current session")
+                let percentUsed = UsageMath.usedFromRemainingFraction(remaining)
+                if id == "gemini-weekly" { planWeekly = percentUsed }
                 let row = UsageRow(
                     title: title,
                     resetsAt: reset,
-                    percentUsed: UsageMath.usedFromRemainingFraction(remaining),
+                    percentUsed: percentUsed,
                     unlimited: false
                 )
                 rows.append(row)
             }
         }
         guard !rows.isEmpty else { return nil }
-        let used = rows.compactMap(\.percentUsed)
-        let scarcest = used.max()
+        // The ring is the plan's weekly use. One model can have its own limit
+        // (Gemini 4 Argon does) and hit 100% while the plan is barely touched.
+        let scarcest = rows.compactMap(\.percentUsed).max()
         return .ok(UsageSnapshot(
-            ringPercent: scarcest,
+            ringPercent: planWeekly ?? scarcest,
             ringUnlimited: false,
             rows: rows,
             detail: nil

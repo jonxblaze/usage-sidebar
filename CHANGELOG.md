@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.4] - 2026-10-31
+
+### Fixed
+- **Antigravity ring**: now follows the plan's weekly limit. It was showing the highest bucket, so one exhausted model (Gemini 4 Argon) drove the ring to 100% while weekly use was 25%. The model's limit stays in the popover, now labeled with its name.
+
+---
+
 ## [1.2.3] - 2026-10-31
 
 ### Added
