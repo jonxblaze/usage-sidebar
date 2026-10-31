@@ -1,3 +1,11 @@
 dist/
 .DS_Store
 *.swp
+.claude-session/
+.env
+.env.*
+credentials.json
+.credentials.json
+*.pem
+*.p12
+*.mobileprovision
