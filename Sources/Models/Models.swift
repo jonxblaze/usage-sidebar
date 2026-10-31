@@ -166,15 +166,7 @@ enum ProviderStatus: Equatable {
 }
 
 enum UsageMath {
-    /// Map a JSON utilization that may be either 0...1 or 0...100.
-    static func percent(fromRaw raw: Double) -> Double {
-        if raw < 0 { return 0 }
-        if raw <= 2.0 { return min(raw * 100.0, 200) }
-        return min(raw, 999)
-    }
-
-    /// For values already on a 0...100 scale. Do not run `percent(fromRaw:)`
-    /// on these: it treats 1.0 as "100% used".
+    /// For values already on a 0...100 scale.
     static func clampedPercent(_ raw: Double) -> Double {
         min(max(raw, 0), 999)
     }

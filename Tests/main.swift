@@ -71,4 +71,19 @@ check("used-up premium still reads 100", exhausted?.ringPercent == 100)
 
 check("bar scale spans the full width in order", BarTone.stops.map(\.location) == [0, 0.33, 0.66, 1])
 
+func claude(session: Double, weekly: Double) -> UsageSnapshot? {
+    guard let json = JSONMap([
+        "five_hour": ["utilization": session],
+        "seven_day": ["utilization": weekly],
+    ]), case .ok(let snap) = ClaudeProvider.parse(json) else { return nil }
+    return snap
+}
+
+// Shape of a live /api/oauth/usage reply from 2026-10-31, just after a reset.
+let lowClaude = claude(session: 2, weekly: 43)
+check("claude 2 means 2%, not 200%", lowClaude?.ringPercent == 2)
+check("claude weekly row is unchanged", lowClaude?.rows.last?.percentUsed == 43)
+check("claude 1 means 1%, not 100%", claude(session: 1, weekly: 1)?.ringPercent == 1)
+check("claude full session reads 100", claude(session: 100, weekly: 43)?.ringPercent == 100)
+
 exit(failures == 0 ? 0 : 1)

@@ -47,7 +47,7 @@ enum ClaudeProvider {
         }
     }
 
-    private static func parse(_ json: JSONMap) -> ProviderStatus {
+    static func parse(_ json: JSONMap) -> ProviderStatus {
         let session = window(json.map("five_hour", "fiveHour"), title: "Current session")
         let weekly = window(json.map("seven_day", "sevenDay"), title: "All models")
         var rows: [UsageRow] = []
@@ -71,7 +71,7 @@ enum ClaudeProvider {
         return UsageRow(
             title: title,
             resetsAt: resets,
-            percentUsed: UsageMath.percent(fromRaw: raw),
+            percentUsed: UsageMath.clampedPercent(raw),
             unlimited: false
         )
     }
