@@ -12,7 +12,7 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
 
 ## ✨ Features & Design
 
-- **Organic Right-Edge Scoop (`EdgeScoopShape`)**: Obsidian dark dock (`#0D0D0D`) with smooth concave Bézier fillets that seamlessly hug the right edge of your display.
+- **Organic Right-Edge Scoop (`EdgeScoopShape`)**: Obsidian dark dock (`#0F0F12`) with smooth concave Bézier fillets that seamlessly hug the right edge of your display.
 - **Vertical Badge Widget System**:
   - 38×38pt circular badges with high-contrast active progress ring tracks.
   - High-legibility monospaced percentage readouts (`13pt .monospacedDigit()`) placed directly below each badge.
@@ -20,16 +20,16 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
 - **Hover Slide-In & Focusout Slide-Out**: Moving your mouse over the collapsed edge tab automatically slides the full dock into view; leaving the dock automatically stows it back into the edge tab after a 350ms grace period.
 - **Pin / Always-Open Mode**: Click the pin icon in the bottom toolbar (or toggle in Settings) to keep the sidebar pinned open permanently.
 - **Official Brand Vector Marks (`SVGPathEngine`)**:
-  - 🟠 **Anthropic Claude**: Official 12-arm sunburst / asterisk vector mark (`#FA5A2A`).
-  - 🟢 **xAI Grok Build**: Official dynamic sliced ring logo with flared top-right blade wing and tapered fin (`#10B981`).
-  - 🟡 **Google Antigravity**: Multi-faceted crystal snowflake starburst mark (`#D5F01F`).
-  - 🔵 **GitHub Copilot**: Official GitHub Primer Octicons astronaut robot head with visor & eye cutouts (`#3B82F6`).
+  - 🟠 **Anthropic Claude**: Official 12-arm sunburst / asterisk vector mark (`#FA6129`).
+  - 🟢 **xAI Grok Build**: Official dynamic sliced ring logo with flared top-right blade wing and tapered fin (`#21E08A`).
+  - 🟡 **Google Antigravity**: Multi-faceted crystal snowflake starburst mark (`#D6F01F`).
+  - 🔵 **GitHub Copilot**: Official GitHub Primer Octicons astronaut robot head with visor & eye cutouts (`#409EFF`).
   - Built with a pure Swift zero-dependency SVG path parsing engine (`SVGPathEngine`).
 - **Collapsible Edge Tab**: Click the collapse handle to stow the sidebar into a minimal 18pt edge tab (`CollapsedScoopShape`), or hover to expand.
-- **Your Own Provider List**: Open **Manage Providers…** in Settings to remove built-in providers or add your own. A custom provider needs an HTTPS URL that returns usage as JSON, an API key, and the path to a 0-100 percent field, like `data.percent_used`. Keys are stored in the macOS Keychain and sent as a Bearer token to that URL only, and redirects are not followed. The app is ad-hoc signed, so another program running as you could read these keys. That is the same protection as the credential files the sidebar reads.
+- **Your Own Provider List**: Open **Manage Providers…** in Settings to remove built-in providers or add your own, up to 10 in all. A custom provider needs an HTTPS URL that returns usage as JSON, an API key, and the path to a 0-100 percent field, like `data.percent_used`. Keys are stored in the macOS Keychain and sent as a Bearer token to that URL only, and redirects are not followed. The app is ad-hoc signed, so another program running as you could read these keys. That is the same protection as the credential files the sidebar reads.
 - **Integrated Settings Popover**: Dedicated gear button for "Start at Login" configuration (`SMAppService`), Auto-Hide preferences, and quick app termination.
 - **Detailed Quota Popovers**:
-  - Live progress bars with color-coded utilization thresholds (<50% Green, 50-80% Orange, >80% Red).
+  - Live progress bars that show the full scale, blending from green through yellow and orange to red. The used part is bright and the rest is dimmed, so red is only reached at 100%.
   - Humanized reset countdowns (e.g. *"Resets in 45 min"*, *"Resets Mon 10:00 AM"*).
   - Multi-tier bucket breakdowns (session limits, weekly caps, premium interactions).
   - Active popover protection keeps the dock open while reading details.
@@ -107,13 +107,13 @@ Those items trust `/usr/bin/security` (`apple-tool:`), not this app. The sidebar
    - Reads from `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.gemini/oauth_creds.json`, `~/.agy`, or `~/Library/Application Support/Antigravity`.
    - Primary: `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`.
    - Fallback: Connects via local loopback language server (`RetrieveUserQuotaSummary` / `GetUserStatus` on `127.0.0.1` via TLS with `LocalTrustDelegate`).
-   - Ring displays the plan's weekly limit (`gemini-weekly`), or the highest bucket if that is missing. Other limits, including per-model ones, are listed in the popover.
+   - Ring displays the plan's weekly limit (`gemini-weekly`), or the highest bucket if that is missing. Other limits, including per-model ones, are listed in the popover. The local language server fallback shows the scarcest Gemini model instead.
 4. **GitHub Copilot**:
    - Reads from `~/.config/gh/hosts.yml` or `gh auth token`.
    - `GET https://api.github.com/copilot_internal/user` → `quota_snapshots`.
-   - Paid plans: ring displays `premium_interactions`. Free plans have no Premium allowance, so that row is hidden and the ring displays `chat` or `completions`, whichever is higher. Unlimited buckets display **∞** / **Unlimited**.
+   - Paid plans: ring displays `premium_interactions`. Free plans have no Premium allowance, so that row is hidden and the ring displays `chat` or `completions`, whichever is higher, and the popover says **Free plan**. Unlimited buckets display **∞** / **Unlimited**.
 
-Each provider polls independently every ~60 seconds and implements exponential backoff on HTTP 429 rate limit responses (honoring `Retry-After` headers).
+Each provider polls independently every ~60 seconds. On HTTP 429 it waits for `Retry-After` (60 seconds if the header is missing, at least 30 seconds, at most 1 hour). Other errors back off gradually, up to 5 minutes.
 
 ---
 
@@ -122,6 +122,7 @@ Each provider polls independently every ~60 seconds and implements exponential b
 ```
 usage-sidebar/
 ├── CHANGELOG.md              # Version release notes and history
+├── LICENSE                   # MIT License
 ├── README.md                 # Project documentation and guide
 ├── Sources/
 │   ├── App/
@@ -134,16 +135,24 @@ usage-sidebar/
 │   │   ├── AntigravityProvider.swift # Cloud Code PA API & local language server polling
 │   │   ├── ClaudeProvider.swift      # Anthropic OAuth usage API polling
 │   │   ├── CopilotProvider.swift     # GitHub internal Copilot quota API polling
+│   │   ├── CustomProviderClient.swift # User-configured JSON usage URL polling
 │   │   └── GrokProvider.swift        # xAI CLI billing proxy API polling
 │   ├── Support/
 │   │   ├── JSONMap.swift         # Dynamic JSON tree traversal and safe casting
 │   │   └── Secrets.swift         # Keychain query, process execution, token regex redaction
 │   ├── Views/
+│   │   ├── ProvidersWindow.swift # Manage Providers window and add-provider form
 │   │   └── Views.swift           # SwiftUI UI, EdgeScoopShape, SVGPathEngine, and popovers
 │   └── Info.plist                # LSUIElement, macOS 14 bundle configuration
+├── Tests/
+│   └── main.swift                # Parser and bar scale checks
 ├── dist/                         # Compiled macOS application output (UsageSidebar.app)
 └── scripts/
-    └── build-app.sh              # Standalone swiftc build & code signing script
+    ├── build-app.sh              # Standalone swiftc build & code signing script
+    ├── bump-release.py           # Version and changelog bump
+    ├── hooks/pre-commit          # Runs the bump on commit
+    ├── install-hooks.sh          # Installs the pre-commit hook
+    └── test.sh                   # Compiles and runs the tests
 ```
 
 ---
