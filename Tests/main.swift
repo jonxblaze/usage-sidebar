@@ -69,4 +69,6 @@ let exhausted = copilot(sku: "copilot_for_individual_user", [
 ])
 check("used-up premium still reads 100", exhausted?.ringPercent == 100)
 
+check("bar scale spans the full width in order", BarTone.stops.map(\.location) == [0, 0.33, 0.66, 1])
+
 exit(failures == 0 ? 0 : 1)

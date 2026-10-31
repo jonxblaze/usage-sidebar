@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.6] - 2026-10-31
+
+### Changed
+- **Popover usage bars**: each bar now shows the full scale, blending from green through yellow and orange to red. The used part is bright and the rest is dimmed, so red is only reached at 100%.
+
+---
+
 ## [1.2.5] - 2026-10-31
 
 ### Fixed

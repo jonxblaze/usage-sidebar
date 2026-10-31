@@ -1037,10 +1037,13 @@ struct UsageRowView: View {
             } else if let pct = row.percentUsed {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.10))
+                        // The whole scale stays visible, dimmed past the used part.
+                        Capsule().fill(BarTone.gradient).opacity(0.40)
                         Capsule()
-                            .fill(BarTone.color(forPercent: pct))
-                            .frame(width: max(6, geo.size.width * min(max(pct / 100.0, 0), 1)))
+                            .fill(BarTone.gradient)
+                            .mask(alignment: .leading) {
+                                Capsule().frame(width: max(6, geo.size.width * min(max(pct / 100.0, 0), 1)))
+                            }
                     }
                 }
                 .frame(height: 6)
