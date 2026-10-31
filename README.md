@@ -107,11 +107,11 @@ Those items trust `/usr/bin/security` (`apple-tool:`), not this app. The sidebar
    - Reads from `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.gemini/oauth_creds.json`, `~/.agy`, or `~/Library/Application Support/Antigravity`.
    - Primary: `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`.
    - Fallback: Connects via local loopback language server (`RetrieveUserQuotaSummary` / `GetUserStatus` on `127.0.0.1` via TLS with `LocalTrustDelegate`).
-   - Ring displays the scarcest quota bucket percentage (e.g. Gemini 5-hour or weekly model cap).
+   - Ring displays the plan's weekly limit (`gemini-weekly`), or the highest bucket if that is missing. Other limits, including per-model ones, are listed in the popover.
 4. **GitHub Copilot**:
    - Reads from `~/.config/gh/hosts.yml` or `gh auth token`.
    - `GET https://api.github.com/copilot_internal/user` → `quota_snapshots`.
-   - Ring displays the limited bucket (`premium_interactions` or `chat`). Unlimited buckets display **∞** / **Unlimited**.
+   - Paid plans: ring displays `premium_interactions`. Free plans have no Premium allowance, so that row is hidden and the ring displays `chat` or `completions`, whichever is higher. Unlimited buckets display **∞** / **Unlimited**.
 
 Each provider polls independently every ~60 seconds and implements exponential backoff on HTTP 429 rate limit responses (honoring `Retry-After` headers).
 
@@ -150,4 +150,4 @@ usage-sidebar/
 
 ## 📄 License
 
-MIT License. Designed for personal productivity.
+[MIT License](LICENSE). Designed for personal productivity.
