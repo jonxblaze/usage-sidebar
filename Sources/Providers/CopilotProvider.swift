@@ -34,13 +34,11 @@ enum CopilotProvider {
         }
     }
 
-    private static func parse(_ json: JSONMap) -> ProviderStatus {
+    static func parse(_ json: JSONMap) -> ProviderStatus {
         let reset = DateParse.date(from: json.any("quota_reset_date_utc", "quotaResetDateUtc", "quota_reset_date", "quotaResetDate"))
         let snapshots = JSONMap(json.any("quota_snapshots", "quotaSnapshots"))
         let order = ["premium_interactions", "chat", "completions"]
         var rows: [UsageRow] = []
-        var ringPercent: Double?
-        var ringUnlimited = false
 
         if let snapshots {
             for key in order {
@@ -54,6 +52,8 @@ enum CopilotProvider {
                     }
                 }()
                 let unlimited = snap.bool("unlimited") ?? false
+                // Free plans report Premium with 0 allowance and 0% remaining, which is not 100% used.
+                if !unlimited, snap.double("entitlement") == 0 { continue }
                 var used: Double? = nil
                 if !unlimited {
                     if let remaining = snap.double("percent_remaining", "percentRemaining") {
@@ -72,22 +72,18 @@ enum CopilotProvider {
             }
         }
 
-        if let limited = rows.first(where: { !$0.unlimited }) {
-            ringPercent = limited.percentUsed
-            ringUnlimited = false
-        } else if rows.contains(where: { $0.unlimited }) {
-            ringUnlimited = true
-            ringPercent = nil
-        }
-
         guard !rows.isEmpty else {
-            return .error("Copilot response had no quota_snapshots.")
+            return .error("Copilot response had no usage limits.")
         }
+        // Paid plans follow Premium. Free plans follow whichever limit is closest to running out.
+        let limited = rows.filter { !$0.unlimited }
+        let premium = limited.first { $0.title == "Premium" }?.percentUsed
+        let isFree = json.string("access_type_sku", "accessTypeSku")?.hasPrefix("free") ?? false
         return .ok(UsageSnapshot(
-            ringPercent: ringPercent,
-            ringUnlimited: ringUnlimited,
+            ringPercent: premium ?? limited.compactMap(\.percentUsed).max(),
+            ringUnlimited: limited.isEmpty,
             rows: rows,
-            detail: nil
+            detail: isFree ? "Free plan" : nil
         ))
     }
 

@@ -39,4 +39,34 @@ let noPlanWeekly = snapshot([
 ])
 check("without plan weekly, ring is the highest bucket", noPlanWeekly?.ringPercent == 80)
 
+func copilot(sku: String, _ snapshots: [String: [String: Any]]) -> UsageSnapshot? {
+    guard let json = JSONMap(["access_type_sku": sku, "quota_snapshots": snapshots]),
+          case .ok(let snap) = CopilotProvider.parse(json) else { return nil }
+    return snap
+}
+
+// Shape of a live copilot_internal/user reply on a free account, 2026-10-31.
+let free = copilot(sku: "free_limited_copilot", [
+    "premium_interactions": ["entitlement": 0, "percent_remaining": 0.0, "unlimited": false],
+    "chat": ["entitlement": 200, "percent_remaining": 75.0, "unlimited": false],
+    "completions": ["entitlement": 2000, "percent_remaining": 100.0, "unlimited": false],
+])
+check("free plan has no premium row", free?.rows.map(\.title) == ["Chat", "Completions"])
+check("free plan ring is the highest limit", free?.ringPercent == 25)
+check("free plan is labeled", free?.detail == "Free plan")
+
+let paid = copilot(sku: "copilot_for_individual_user", [
+    "premium_interactions": ["entitlement": 300, "percent_remaining": 60.0, "unlimited": false],
+    "chat": ["entitlement": 0, "percent_remaining": 100.0, "unlimited": true],
+    "completions": ["entitlement": 0, "percent_remaining": 100.0, "unlimited": true],
+])
+check("paid plan ring is premium", paid?.ringPercent == 40)
+check("paid plan keeps unlimited rows", paid?.rows.map(\.title) == ["Premium", "Chat", "Completions"])
+check("paid plan has no free label", paid?.detail == nil)
+
+let exhausted = copilot(sku: "copilot_for_individual_user", [
+    "premium_interactions": ["entitlement": 300, "percent_remaining": 0.0, "unlimited": false],
+])
+check("used-up premium still reads 100", exhausted?.ringPercent == 100)
+
 exit(failures == 0 ? 0 : 1)

@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.5] - 2026-10-31
+
+### Fixed
+- **Copilot on free plans**: the ring no longer shows 100%. Free accounts have no Premium allowance, and GitHub reports that as 0% remaining. The Premium row is now hidden when the allowance is 0, the ring follows Chat or Completions, whichever is higher, and the popover says "Free plan". Paid plans still follow Premium.
+
+---
+
 ## [1.2.4] - 2026-10-31
 
 ### Fixed

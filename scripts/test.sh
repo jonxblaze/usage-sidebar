@@ -11,6 +11,7 @@ swiftc \
   "$root/Sources/Support/JSONMap.swift" \
   "$root/Sources/Support/Secrets.swift" \
   "$root/Sources/Providers/AntigravityProvider.swift" \
+  "$root/Sources/Providers/CopilotProvider.swift" \
   "$root/Tests/main.swift" \
   -o "$out/tests"
 "$out/tests"
