@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.5] - 2026-10-31
+
+### Fixed
+- **Copilot on free plans**: the ring no longer shows 100%. Free accounts have no Premium allowance, and GitHub reports that as 0% remaining. The Premium row is now hidden when the allowance is 0, the ring follows Chat or Completions, whichever is higher, and the popover says "Free plan". Paid plans still follow Premium.
+
+---
+
+## [1.2.4] - 2026-10-31
+
+### Fixed
+- **Antigravity ring**: now follows the plan's weekly limit. It was showing the highest bucket, so one exhausted model (Gemini 4 Argon) drove the ring to 100% while weekly use was 25%. The model's limit stays in the popover, now labeled with its name.
+
+---
+
 ## [1.2.3] - 2026-10-31
 
 ### Added
