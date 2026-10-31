@@ -4,10 +4,18 @@ import SwiftUI
 
 @MainActor
 final class UsageStore: ObservableObject {
-    @Published var claude: ProviderStatus = .loading
-    @Published var grok: ProviderStatus = .loading
-    @Published var antigravity: ProviderStatus = .loading
-    @Published var copilot: ProviderStatus = .loading
+    /// Each ring is about 66pt tall, so more than this runs off a laptop screen.
+    static let maxProviders = 10
+    private static let providersKey = "providers"
+
+    @Published private(set) var providers: [ProviderEntry] {
+        didSet {
+            if let data = try? JSONEncoder().encode(providers) {
+                UserDefaults.standard.set(data, forKey: Self.providersKey)
+            }
+        }
+    }
+    @Published private var statuses: [String: ProviderStatus] = [:]
     @Published var expanded: Bool
     @Published var autoHide: Bool {
         didSet {
@@ -18,10 +26,11 @@ final class UsageStore: ObservableObject {
     @Published var loginMessage: String?
 
     private let previewMode: Bool
-    private var tasks: [Task<Void, Never>] = []
+    private var tasks: [String: Task<Void, Never>] = [:]
 
     init(preview: Bool = false) {
         previewMode = preview
+        providers = Self.savedProviders()
         startsAtLogin = LoginItem.isEnabled
         let isAutoHide = UserDefaults.standard.object(forKey: "autoHide") != nil
             ? UserDefaults.standard.bool(forKey: "autoHide")
@@ -30,12 +39,49 @@ final class UsageStore: ObservableObject {
         expanded = !isAutoHide
     }
 
-    func status(for id: ProviderID) -> ProviderStatus {
-        switch id {
-        case .claude: return claude
-        case .grok: return grok
-        case .antigravity: return antigravity
-        case .copilot: return copilot
+    private static func savedProviders() -> [ProviderEntry] {
+        guard let data = UserDefaults.standard.data(forKey: providersKey),
+              let saved = try? JSONDecoder().decode([ProviderEntry].self, from: data) else {
+            return ProviderEntry.defaults
+        }
+        return saved
+    }
+
+    func status(for entry: ProviderEntry) -> ProviderStatus {
+        statuses[entry.id] ?? .loading
+    }
+
+    var canAddProvider: Bool { providers.count < Self.maxProviders }
+
+    var removedBuiltIns: [BuiltInProvider] {
+        BuiltInProvider.allCases.filter { !providers.contains(.builtIn($0)) }
+    }
+
+    func add(_ entry: ProviderEntry) {
+        guard canAddProvider, !providers.contains(entry) else { return }
+        providers.append(entry)
+        startPolling(entry)
+    }
+
+    /// Returns false, and adds nothing, if the Keychain refused the key.
+    func addCustom(_ provider: CustomProvider, apiKey: String) async -> Bool {
+        guard canAddProvider else { return false }
+        let saved = await Task.detached(priority: .userInitiated) {
+            Secrets.saveAPIKey(apiKey, id: provider.id)
+        }.value
+        guard saved else { return false }
+        add(.custom(provider))
+        return true
+    }
+
+    func remove(_ entry: ProviderEntry) {
+        tasks.removeValue(forKey: entry.id)?.cancel()
+        statuses[entry.id] = nil
+        providers.removeAll { $0.id == entry.id }
+        if case .custom(let provider) = entry {
+            Task.detached(priority: .utility) {
+                Secrets.deleteAPIKey(id: provider.id)
+            }
         }
     }
 
@@ -43,16 +89,19 @@ final class UsageStore: ObservableObject {
         guard !previewMode else { return }
         LoginItem.enableOnFirstLaunch()
         startsAtLogin = LoginItem.isEnabled
-        for id in ProviderID.allCases {
-            tasks.append(Task { [weak self] in
-                await self?.poll(id)
-            })
-        }
+        providers.forEach(startPolling)
     }
 
     func stop() {
-        tasks.forEach { $0.cancel() }
+        tasks.values.forEach { $0.cancel() }
         tasks.removeAll()
+    }
+
+    private func startPolling(_ entry: ProviderEntry) {
+        guard !previewMode else { return }
+        tasks[entry.id] = Task { [weak self] in
+            await self?.poll(entry)
+        }
     }
 
     func setStartsAtLogin(_ on: Bool) {
@@ -66,11 +115,12 @@ final class UsageStore: ObservableObject {
         }
     }
 
-    private func poll(_ id: ProviderID) async {
+    private func poll(_ entry: ProviderEntry) async {
         var interval: TimeInterval = 60
         while !Task.isCancelled {
-            let result = await fetch(id)
-            apply(id, result)
+            let result = await fetch(entry)
+            guard !Task.isCancelled else { return }
+            apply(entry.id, result)
             switch result {
             case .rateLimited(let until):
                 let wait = max(until.timeIntervalSinceNow, 30)
@@ -90,26 +140,24 @@ final class UsageStore: ObservableObject {
         }
     }
 
-    private func fetch(_ id: ProviderID) async -> ProviderStatus {
-        switch id {
-        case .claude: return await ClaudeProvider.fetch()
-        case .grok: return await GrokProvider.fetch()
-        case .antigravity: return await AntigravityProvider.fetch()
-        case .copilot: return await CopilotProvider.fetch()
+    private func fetch(_ entry: ProviderEntry) async -> ProviderStatus {
+        switch entry {
+        case .builtIn(.claude): return await ClaudeProvider.fetch()
+        case .builtIn(.grok): return await GrokProvider.fetch()
+        case .builtIn(.antigravity): return await AntigravityProvider.fetch()
+        case .builtIn(.copilot): return await CopilotProvider.fetch()
+        case .custom(let provider): return await CustomProviderClient.fetch(provider)
         }
     }
 
-    private func apply(_ id: ProviderID, _ status: ProviderStatus) {
-        switch id {
-        case .claude: claude = status
-        case .grok: grok = status
-        case .antigravity: antigravity = status
-        case .copilot: copilot = status
-        }
+    func apply(_ id: String, _ status: ProviderStatus) {
+        statuses[id] = status
     }
 
     private func sleep(_ seconds: TimeInterval) async {
-        let ns = UInt64(max(seconds, 1) * 1_000_000_000)
+        // A server picks `seconds` on the rate-limit path. Out of range traps here.
+        let bounded = seconds.isFinite ? min(max(seconds, 1), 3600) : 3600
+        let ns = UInt64(bounded * 1_000_000_000)
         try? await Task.sleep(nanoseconds: ns)
     }
 }

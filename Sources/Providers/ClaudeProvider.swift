@@ -9,7 +9,7 @@ enum ClaudeProvider {
         do {
             let tokens = await loadAccessTokens()
             guard !tokens.isEmpty else {
-                return .missingAuth(hint: ProviderID.claude.missingHint)
+                return .missingAuth(hint: BuiltInProvider.claude.missingHint)
             }
             var lastStatus = 0
             var sawAuthFailure = false

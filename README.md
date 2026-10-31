@@ -26,6 +26,7 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
   - 🔵 **GitHub Copilot**: Official GitHub Primer Octicons astronaut robot head with visor & eye cutouts (`#3B82F6`).
   - Built with a pure Swift zero-dependency SVG path parsing engine (`SVGPathEngine`).
 - **Collapsible Edge Tab**: Click the collapse handle to stow the sidebar into a minimal 18pt edge tab (`CollapsedScoopShape`), or hover to expand.
+- **Your Own Provider List**: Open **Manage Providers…** in Settings to remove built-in providers or add your own. A custom provider needs an HTTPS URL that returns usage as JSON, an API key, and the path to a 0-100 percent field, like `data.percent_used`. Keys are stored in the macOS Keychain and sent as a Bearer token to that URL only, and redirects are not followed. The app is ad-hoc signed, so another program running as you could read these keys. That is the same protection as the credential files the sidebar reads.
 - **Integrated Settings Popover**: Dedicated gear button for "Start at Login" configuration (`SMAppService`), Auto-Hide preferences, and quick app termination.
 - **Detailed Quota Popovers**:
   - Live progress bars with color-coded utilization thresholds (<50% Green, 50-80% Orange, >80% Red).

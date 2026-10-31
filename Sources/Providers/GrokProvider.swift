@@ -7,7 +7,7 @@ enum GrokProvider {
     static func fetch() async -> ProviderStatus {
         do {
             guard let token = await Task.detached(priority: .utility, operation: { loadToken() }).value else {
-                return .missingAuth(hint: ProviderID.grok.missingHint)
+                return .missingAuth(hint: BuiltInProvider.grok.missingHint)
             }
             var lastStatus = 0
             for url in [billingURL, billingURLAlt] {
@@ -60,7 +60,7 @@ enum GrokProvider {
             rows.append(UsageRow(
                 title: weeklyTitle,
                 resetsAt: end,
-                percentUsed: alreadyPercent(unified),
+                percentUsed: UsageMath.clampedPercent(unified),
                 unlimited: false
             ))
         }
@@ -72,7 +72,7 @@ enum GrokProvider {
                 rows.append(UsageRow(
                     title: productTitle(name),
                     resetsAt: end,
-                    percentUsed: alreadyPercent(raw),
+                    percentUsed: UsageMath.clampedPercent(raw),
                     unlimited: false
                 ))
             }
@@ -88,12 +88,6 @@ enum GrokProvider {
             rows: rows,
             detail: nil
         ))
-    }
-
-    /// Grok's billing fields are already 0...100. Do not run UsageMath.percent
-    /// (that treats 1.0 as "100% used").
-    private static func alreadyPercent(_ raw: Double) -> Double {
-        min(max(raw, 0), 999)
     }
 
     private static func productTitle(_ name: String) -> String {

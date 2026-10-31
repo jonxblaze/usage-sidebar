@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: NSPanel?
     private var host: NSHostingView<SidebarRoot>?
     private var expandedSink: AnyCancellable?
+    private var providersSink: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -39,6 +40,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         expandedSink = store.$expanded
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.animateResize()
+            }
+        providersSink = store.$providers
             .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in

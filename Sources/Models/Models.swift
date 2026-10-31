@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-enum ProviderID: String, CaseIterable, Identifiable {
+enum BuiltInProvider: String, CaseIterable, Codable, Identifiable {
     case claude
     case grok
     case antigravity
@@ -39,6 +39,76 @@ enum ProviderID: String, CaseIterable, Identifiable {
             return "Open the Antigravity app (or run agy) and sign in with Google."
         case .copilot:
             return "Run gh auth login, then this sidebar can read Copilot quota."
+        }
+    }
+}
+
+enum ProviderColor: String, CaseIterable, Codable, Identifiable {
+    case orange, green, yellow, blue, purple, pink
+
+    var id: String { rawValue }
+
+    var color: Color {
+        switch self {
+        case .orange: return Color(red: 0.98, green: 0.55, blue: 0.16)
+        case .green: return Color(red: 0.13, green: 0.88, blue: 0.54)
+        case .yellow: return Color(red: 0.95, green: 0.80, blue: 0.20)
+        case .blue: return Color(red: 0.25, green: 0.62, blue: 1.0)
+        case .purple: return Color(red: 0.66, green: 0.45, blue: 0.98)
+        case .pink: return Color(red: 0.96, green: 0.38, blue: 0.66)
+        }
+    }
+}
+
+/// A provider the user described in settings. The API key is not here: it
+/// lives in the Keychain under `id`.
+struct CustomProvider: Codable, Equatable, Identifiable {
+    var id = UUID().uuidString
+    var name: String
+    var color: ProviderColor
+    var usageURL: String
+    /// Dotted path to a 0...100 value, e.g. `data.percent_used` or `plans.0.used`.
+    var percentPath: String
+    var resetPath: String?
+
+    var initial: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).first.map { String($0).uppercased() } ?? "?"
+    }
+
+    /// Keys only ever travel over TLS.
+    static func isValidUsageURL(_ text: String) -> Bool {
+        guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+        return url.scheme?.lowercased() == "https" && !(url.host ?? "").isEmpty
+    }
+}
+
+/// One item in the user's saved provider list.
+enum ProviderEntry: Codable, Equatable, Identifiable {
+    case builtIn(BuiltInProvider)
+    case custom(CustomProvider)
+
+    static let defaults = BuiltInProvider.allCases.map { ProviderEntry.builtIn($0) }
+
+    var id: String {
+        switch self {
+        case .builtIn(let provider): return provider.rawValue
+        case .custom(let provider): return provider.id
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .builtIn(let provider): return provider.displayName
+        case .custom(let provider): return provider.name
+        }
+    }
+
+    var usageTitle: String { "\(displayName) Usage" }
+
+    var brand: Color {
+        switch self {
+        case .builtIn(let provider): return provider.brand
+        case .custom(let provider): return provider.color.color
         }
     }
 }
@@ -101,6 +171,12 @@ enum UsageMath {
         if raw < 0 { return 0 }
         if raw <= 2.0 { return min(raw * 100.0, 200) }
         return min(raw, 999)
+    }
+
+    /// For values already on a 0...100 scale. Do not run `percent(fromRaw:)`
+    /// on these: it treats 1.0 as "100% used".
+    static func clampedPercent(_ raw: Double) -> Double {
+        min(max(raw, 0), 999)
     }
 
     static func usedFromRemainingFraction(_ remaining: Double) -> Double {

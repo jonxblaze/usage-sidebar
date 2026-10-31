@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 enum Secrets {
     /// Strip tokens from strings that might be logged or shown in errors.
@@ -79,6 +80,40 @@ enum Secrets {
         if bytes.last == 0x0D { bytes.removeLast() }
         guard !bytes.isEmpty else { return nil }
         return Data(bytes)
+    }
+
+    private static let apiKeyService = "com.jonb.UsageSidebar.api-key"
+
+    private static func apiKeyQuery(_ id: String) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: apiKeyService,
+            kSecAttrAccount as String: id,
+        ]
+    }
+
+    /// Keys for custom providers are items this app created, so unlike
+    /// `keychainPassword` these go straight through SecItem. `security
+    /// add-generic-password` would put the key on a process argument list.
+    static func saveAPIKey(_ key: String, id: String) -> Bool {
+        deleteAPIKey(id: id)
+        var query = apiKeyQuery(id)
+        query[kSecValueData as String] = Data(key.utf8)
+        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+    }
+
+    static func loadAPIKey(id: String) -> String? {
+        var query = apiKeyQuery(id)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func deleteAPIKey(id: String) {
+        SecItemDelete(apiKeyQuery(id) as CFDictionary)
     }
 
     private static let keychainGate = NSLock()
@@ -184,7 +219,30 @@ final class LocalTrustDelegate: NSObject, URLSessionDelegate {
     }
 }
 
+/// Keeps a custom provider's key from following a redirect to another host.
+final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
+    }
+}
+
 enum HTTP {
+    /// For URLs the user typed. `timeoutInterval` on a request is an idle
+    /// timeout, so a slow drip needs this total deadline as well.
+    private static let noRedirectSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForResource = 20
+        return URLSession(configuration: config, delegate: NoRedirectDelegate(), delegateQueue: nil)
+    }()
+
+    static let maxUntrustedBody = 1_000_000
+
     private static let localSession: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         return URLSession(configuration: config, delegate: LocalTrustDelegate.shared, delegateQueue: nil)
@@ -207,6 +265,7 @@ enum HTTP {
         case status(Int)
         case rateLimited(TimeInterval)
         case empty
+        case tooLarge
     }
 
     static func request(
@@ -214,7 +273,8 @@ enum HTTP {
         method: String = "GET",
         headers: [String: String],
         body: Data? = nil,
-        timeout: TimeInterval = 15
+        timeout: TimeInterval = 15,
+        followRedirects: Bool = true
     ) async throws -> Response {
         guard let parsed = URL(string: url) else { throw HTTPError.badURL }
         var req = URLRequest(url: parsed, timeoutInterval: timeout)
@@ -225,10 +285,23 @@ enum HTTP {
         }
 
         let host = parsed.host?.lowercased() ?? ""
-        let session = (host == "127.0.0.1" || host == "localhost") ? localSession : URLSession.shared
+        let session: URLSession
+        if !followRedirects {
+            session = noRedirectSession
+        } else if host == "127.0.0.1" || host == "localhost" {
+            session = localSession
+        } else {
+            session = URLSession.shared
+        }
         let (data, urlResponse): (Data, URLResponse)
         do {
-            (data, urlResponse) = try await session.data(for: req)
+            if followRedirects {
+                (data, urlResponse) = try await session.data(for: req)
+            } else {
+                (data, urlResponse) = try await cappedData(for: req, session: session)
+            }
+        } catch HTTPError.tooLarge {
+            throw HTTPError.tooLarge
         } catch {
             throw HTTPError.transport
         }
@@ -245,11 +318,21 @@ enum HTTP {
         )
     }
 
+    private static func cappedData(for req: URLRequest, session: URLSession) async throws -> (Data, URLResponse) {
+        let (bytes, response) = try await session.bytes(for: req)
+        var data = Data()
+        for try await byte in bytes {
+            data.append(byte)
+            if data.count > maxUntrustedBody { throw HTTPError.tooLarge }
+        }
+        return (data, response)
+    }
+
     private static func parseRetryAfter(_ http: HTTPURLResponse) -> TimeInterval? {
         let value = http.value(forHTTPHeaderField: "Retry-After")
             ?? http.value(forHTTPHeaderField: "retry-after")
         guard let value else { return nil }
-        if let seconds = TimeInterval(value) { return max(seconds, 1) }
+        if let seconds = TimeInterval(value), seconds.isFinite { return min(max(seconds, 1), 3600) }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)

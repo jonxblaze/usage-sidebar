@@ -11,12 +11,16 @@ struct SidebarRoot: View {
         nonmutating set { _settingsOpen.wrappedValue = newValue }
     }
     private var _settingsOpen = State(wrappedValue: false)
-    private var activePopoverID: ProviderID? {
+    private var activePopoverID: String? {
         get { _activePopoverID.wrappedValue }
         nonmutating set { _activePopoverID.wrappedValue = newValue }
     }
-    private var _activePopoverID = State<ProviderID?>(wrappedValue: nil)
-    private var _pinnedPopoverID = State<ProviderID?>(wrappedValue: nil)
+    private var _activePopoverID = State<String?>(wrappedValue: nil)
+    private var pinnedPopoverID: String? {
+        get { _pinnedPopoverID.wrappedValue }
+        nonmutating set { _pinnedPopoverID.wrappedValue = newValue }
+    }
+    private var _pinnedPopoverID = State<String?>(wrappedValue: nil)
     private var gearHovered: Bool {
         get { _gearHovered.wrappedValue }
         nonmutating set { _gearHovered.wrappedValue = newValue }
@@ -61,15 +65,23 @@ struct SidebarRoot: View {
             }
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.82), value: store.expanded)
+        .onChange(of: store.providers) { _, providers in
+            // A removed ring takes its popover with it. A stale ID here would
+            // read as an open popover and block auto-hide.
+            if let active = activePopoverID, !providers.contains(where: { $0.id == active }) {
+                activePopoverID = nil
+                pinnedPopoverID = nil
+            }
+        }
     }
 
     private var expandedBody: some View {
         VStack(spacing: 11) {
             // Providers vertical list
-            ForEach(ProviderID.allCases) { id in
+            ForEach(store.providers) { entry in
                 RingCell(
-                    id: id,
-                    status: store.status(for: id),
+                    entry: entry,
+                    status: store.status(for: entry),
                     activePopoverID: _activePopoverID.projectedValue,
                     pinnedPopoverID: _pinnedPopoverID.projectedValue
                 )
@@ -241,11 +253,12 @@ struct SidebarRoot: View {
 // MARK: - Ring Cell (Vertical Layout: Ring on Top, Percentage Below)
 
 struct RingCell: View {
-    let id: ProviderID
+    let entry: ProviderEntry
     let status: ProviderStatus
-    @Binding var activePopoverID: ProviderID?
+    @Binding var activePopoverID: String?
     /// The cell a click is holding open. Hover-opened popovers close on exit.
-    @Binding var pinnedPopoverID: ProviderID?
+    @Binding var pinnedPopoverID: String?
+    private var id: String { entry.id }
     private var hover: Bool {
         get { _hover.wrappedValue }
         nonmutating set { _hover.wrappedValue = newValue }
@@ -306,10 +319,10 @@ struct RingCell: View {
                         .padding(2.5)
 
                     // Progress track and active arc
-                    RingTrack(progress: status.ringProgress, color: id.brand)
+                    RingTrack(progress: status.ringProgress, color: entry.brand)
 
                     // Provider logo mark
-                    ProviderMark(id: id)
+                    ProviderMark(entry: entry)
                         .foregroundStyle(.white)
                 }
                 .frame(width: 38, height: 38)
@@ -327,7 +340,7 @@ struct RingCell: View {
         .buttonStyle(.plain)
         .onHover { handleHover($0) }
         .popover(isPresented: isOpen, arrowEdge: .leading) {
-            UsagePopover(id: id, status: status)
+            UsagePopover(entry: entry, status: status)
         }
     }
 }
@@ -455,21 +468,25 @@ struct SidebarBackground: View {
 // MARK: - Provider Marks
 
 struct ProviderMark: View {
-    let id: ProviderID
+    let entry: ProviderEntry
 
     var body: some View {
-        switch id {
-        case .claude:
+        switch entry {
+        case .builtIn(.claude):
             ClaudeOfficialMark()
                 .foregroundStyle(.white)
-        case .grok:
+        case .builtIn(.grok):
             GrokOfficialMark()
                 .foregroundStyle(.white)
-        case .antigravity:
+        case .builtIn(.antigravity):
             AntigravityCrystalMark()
                 .foregroundStyle(.white)
-        case .copilot:
+        case .builtIn(.copilot):
             CopilotOfficialMark()
+                .foregroundStyle(.white)
+        case .custom(let provider):
+            Text(provider.initial)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
         }
     }
@@ -833,7 +850,7 @@ enum SVGPathEngine {
 // MARK: - Popovers
 
 struct UsagePopover: View {
-    let id: ProviderID
+    let entry: ProviderEntry
     let status: ProviderStatus
 
     var body: some View {
@@ -850,14 +867,14 @@ struct UsagePopover: View {
     private var header: some View {
         HStack(spacing: 9) {
             ZStack {
-                Circle().fill(id.brand.opacity(0.25))
-                ProviderMark(id: id)
+                Circle().fill(entry.brand.opacity(0.25))
+                ProviderMark(entry: entry)
                     .frame(width: 14, height: 14)
                     .foregroundStyle(.white)
             }
             .frame(width: 26, height: 26)
 
-            Text(id.usageTitle)
+            Text(entry.usageTitle)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
 
@@ -936,6 +953,21 @@ struct SettingsPopover: View {
                     Text("Tab")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.45))
+                }
+                .foregroundStyle(Color.white.opacity(0.85))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                ProvidersWindow.shared.show(store: store)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.system(size: 12))
+                    Text("Manage Providers…")
+                        .font(.system(size: 12, weight: .medium))
+                    Spacer()
                 }
                 .foregroundStyle(Color.white.opacity(0.85))
                 .contentShape(Rectangle())
@@ -1033,8 +1065,8 @@ struct Sample: PreviewProvider {
                 .padding()
                 .previewDisplayName("Sample")
             UsagePopover(
-                id: .claude,
-                status: UsageStore.samplePreview.claude
+                entry: .builtIn(.claude),
+                status: UsageStore.samplePreview.status(for: .builtIn(.claude))
             )
             .previewDisplayName("Sample")
         }
@@ -1051,7 +1083,7 @@ extension UsageStore {
             matching: DateComponents(hour: 0, minute: 0),
             matchingPolicy: .nextTime
         ) ?? Date().addingTimeInterval(86_400 * 3)
-        store.claude = .ok(UsageSnapshot(
+        store.apply("claude", .ok(UsageSnapshot(
             ringPercent: 73,
             ringUnlimited: false,
             rows: [
@@ -1059,14 +1091,14 @@ extension UsageStore {
                 UsageRow(title: "All models", resetsAt: weekEnd, percentUsed: 7, unlimited: false),
             ],
             detail: nil
-        ))
-        store.grok = .ok(UsageSnapshot(
+        )))
+        store.apply("grok", .ok(UsageSnapshot(
             ringPercent: 21,
             ringUnlimited: false,
             rows: [UsageRow(title: "Weekly", resetsAt: weekEnd, percentUsed: 21, unlimited: false)],
             detail: nil
-        ))
-        store.antigravity = .ok(UsageSnapshot(
+        )))
+        store.apply("antigravity", .ok(UsageSnapshot(
             ringPercent: 52,
             ringUnlimited: false,
             rows: [
@@ -1074,8 +1106,8 @@ extension UsageStore {
                 UsageRow(title: "Weekly", resetsAt: weekEnd, percentUsed: 18, unlimited: false),
             ],
             detail: nil
-        ))
-        store.copilot = .ok(UsageSnapshot(
+        )))
+        store.apply("copilot", .ok(UsageSnapshot(
             ringPercent: 40,
             ringUnlimited: false,
             rows: [
@@ -1083,7 +1115,7 @@ extension UsageStore {
                 UsageRow(title: "Chat", resetsAt: nil, percentUsed: nil, unlimited: true),
             ],
             detail: nil
-        ))
+        )))
         return store
     }
 }

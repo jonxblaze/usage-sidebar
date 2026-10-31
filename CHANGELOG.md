@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.3] - 2026-10-31
+
+### Added
+- **Manage Providers**: a new window, opened from Settings, adds and removes providers. The sidebar now shows a saved list instead of a fixed set. Claude, Grok Build, Antigravity and Copilot are built-ins you can remove and add back.
+- **Custom providers**: add any service with an HTTPS JSON usage URL, an API key, and a path to its percent-used field. A Test button shows the real reply. Keys live in the Keychain.
+
+---
+
 ## [1.2.2] - 2026-10-31
 
 ### Added
