@@ -60,7 +60,8 @@ enum ClaudeProvider {
             ringPercent: session?.percentUsed,
             ringUnlimited: false,
             rows: rows,
-            detail: nil
+            detail: nil,
+            weeklyPercent: weekly?.percentUsed
         ))
     }
 

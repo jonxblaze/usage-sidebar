@@ -28,7 +28,8 @@ let live = snapshot([
     group("Claude and GPT models", [bucket("3p-weekly", 1), bucket("3p-5h", 1)]),
     group("Gemini 4 Argon", [bucket("gemini-argon-wtu-weekly", 0)]),
 ])
-check("ring is plan weekly, not the exhausted model", live?.ringPercent == 25)
+check("inner ring is plan session, not the exhausted model", live?.ringPercent?.rounded() == 1)
+check("outer ring is plan weekly, not the exhausted model", live?.weeklyPercent == 25)
 check("exhausted model keeps its row", live?.rows.last?.percentUsed == 100)
 check("exhausted model is named", live?.rows.last?.title == "Gemini 4 Argon Weekly")
 check("plan rows have short names", live?.rows.first?.title == "Weekly" && live?.rows[1].title == "Current session")
@@ -38,6 +39,10 @@ let noPlanWeekly = snapshot([
     group("Claude and GPT models", [bucket("3p-weekly", 0.5), bucket("3p-5h", 0.2)]),
 ])
 check("without plan weekly, ring is the highest bucket", noPlanWeekly?.ringPercent == 80)
+check("without plan weekly, no outer ring", noPlanWeekly?.weeklyPercent == nil)
+
+let onlyPlanWeekly = snapshot([group("Gemini Models", [bucket("gemini-weekly", 0.75)])])
+check("without plan session, ring is plan weekly", onlyPlanWeekly?.ringPercent == 25)
 
 func copilot(sku: String, _ snapshots: [String: [String: Any]]) -> UsageSnapshot? {
     guard let json = JSONMap(["access_type_sku": sku, "quota_snapshots": snapshots]),
@@ -63,6 +68,7 @@ let paid = copilot(sku: "copilot_for_individual_user", [
 check("paid plan ring is premium", paid?.ringPercent == 40)
 check("paid plan keeps unlimited rows", paid?.rows.map(\.title) == ["Premium", "Chat", "Completions"])
 check("paid plan has no free label", paid?.detail == nil)
+check("copilot has no outer ring", paid?.weeklyPercent == nil)
 
 let exhausted = copilot(sku: "copilot_for_individual_user", [
     "premium_interactions": ["entitlement": 300, "percent_remaining": 0.0, "unlimited": false],
@@ -83,8 +89,57 @@ func claude(session: Double, weekly: Double) -> UsageSnapshot? {
 let lowClaude = claude(session: 2, weekly: 43)
 check("claude 2 means 2%, not 200%", lowClaude?.ringPercent == 2)
 check("claude weekly row is unchanged", lowClaude?.rows.last?.percentUsed == 43)
+check("claude outer ring is weekly", lowClaude?.weeklyPercent == 43)
 check("claude 1 means 1%, not 100%", claude(session: 1, weekly: 1)?.ringPercent == 1)
 check("claude full session reads 100", claude(session: 100, weekly: 43)?.ringPercent == 100)
+
+func grokStatus(period: String, _ extra: [String: Any] = ["creditUsagePercent": 21.0]) -> ProviderStatus? {
+    var config = extra
+    config["currentPeriod"] = ["type": period, "end": "2026-11-08T00:00:00Z"]
+    guard let json = JSONMap(["config": config]) else { return nil }
+    return GrokProvider.parse(json)
+}
+
+func grokSnapshot(period: String, _ extra: [String: Any] = ["creditUsagePercent": 21.0]) -> UsageSnapshot? {
+    guard case .ok(let snap)? = grokStatus(period: period, extra) else { return nil }
+    return snap
+}
+
+let grokWeekly = grokSnapshot(period: "USAGE_PERIOD_TYPE_WEEKLY")
+check("grok without a build slice has an empty inner ring", grokWeekly != nil && grokWeekly?.ringPercent == nil)
+let grokBoth = grokSnapshot(period: "USAGE_PERIOD_TYPE_WEEKLY", [
+    "creditUsagePercent": 21.0,
+    "productUsage": [
+        ["product": "GrokChat", "usagePercent": 12.0],
+        ["product": "GrokBuild", "usagePercent": 9.0],
+    ],
+])
+check("grok inner ring is grok build", grokBoth?.ringPercent == 9)
+check("grok outer ring stays weekly credits", grokBoth?.weeklyPercent == 21)
+let grokOnlyChat = grokSnapshot(period: "USAGE_PERIOD_TYPE_WEEKLY", [
+    "creditUsagePercent": 21.0,
+    "productUsage": [["product": "GrokChat", "usagePercent": 12.0]],
+])
+check("another product never fills the inner ring", grokOnlyChat != nil && grokOnlyChat?.ringPercent == nil)
+check("grok weekly fills the outer ring", grokWeekly?.weeklyPercent == 21)
+check("grok caption falls back to weekly", grokStatus(period: "USAGE_PERIOD_TYPE_WEEKLY")?.ringCaption == "21%")
+let grokMonthly = grokSnapshot(period: "USAGE_PERIOD_TYPE_MONTHLY")
+check("grok monthly stays on the inner ring", grokMonthly?.ringPercent == 21)
+check("grok monthly has no outer ring", grokMonthly != nil && grokMonthly?.weeklyPercent == nil)
+let grokProducts = grokSnapshot(period: "USAGE_PERIOD_TYPE_WEEKLY", [
+    "productUsage": [["product": "GrokBuild", "usagePercent": 9.0]],
+])
+check("grok without credits keeps the product ring", grokProducts?.ringPercent == 9)
+check("grok without credits has no outer ring", grokProducts != nil && grokProducts?.weeklyPercent == nil)
+
+func weeklyStatus(_ percent: Double?) -> ProviderStatus {
+    .ok(UsageSnapshot(ringPercent: 5, ringUnlimited: false, rows: [], detail: nil, weeklyPercent: percent))
+}
+check("weekly progress is a fraction", weeklyStatus(43).weeklyProgress == 0.43)
+check("weekly progress stops at full", weeklyStatus(150).weeklyProgress == 1)
+check("no weekly data draws no ring", weeklyStatus(nil).weeklyProgress == nil)
+check("errors draw no weekly ring", ProviderStatus.error("").weeklyProgress == nil)
+check("loading draws no weekly ring", ProviderStatus.loading.weeklyProgress == nil)
 
 let grok = ProviderEntry.builtIn(.grok)
 let noSignIn = ProviderStatus.notSignedIn(hint: "")

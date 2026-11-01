@@ -52,6 +52,7 @@ enum AntigravityProvider {
         guard let groups = root.array("groups") else { return nil }
         var rows: [UsageRow] = []
         var planWeekly: Double?
+        var planSession: Double?
         for groupAny in groups {
             guard let group = JSONMap(groupAny) else { continue }
             let groupName = group.string("displayName", "display_name") ?? "Gemini"
@@ -71,6 +72,7 @@ enum AntigravityProvider {
                 let title = prefix + (isWeekly ? "Weekly" : "Current session")
                 let percentUsed = UsageMath.usedFromRemainingFraction(remaining)
                 if id == "gemini-weekly" { planWeekly = percentUsed }
+                if id == "gemini-5h" { planSession = percentUsed }
                 let row = UsageRow(
                     title: title,
                     resetsAt: reset,
@@ -81,14 +83,15 @@ enum AntigravityProvider {
             }
         }
         guard !rows.isEmpty else { return nil }
-        // The ring is the plan's weekly use. One model can have its own limit
-        // (Gemini 4 Argon does) and hit 100% while the plan is barely touched.
+        // The rings are the plan's session and weekly use. One model can have its
+        // own limit (Gemini 4 Argon does) and hit 100% while the plan is barely touched.
         let scarcest = rows.compactMap(\.percentUsed).max()
         return .ok(UsageSnapshot(
-            ringPercent: planWeekly ?? scarcest,
+            ringPercent: planSession ?? planWeekly ?? scarcest,
             ringUnlimited: false,
             rows: rows,
-            detail: nil
+            detail: nil,
+            weeklyPercent: planWeekly
         ))
     }
 

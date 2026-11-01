@@ -324,10 +324,28 @@ struct RingCell: View {
                     // Dark circular inner plate
                     Circle()
                         .fill(Color(white: 0.12))
-                        .padding(2.5)
+                        .padding(5.5)
 
-                    // Progress track and active arc
-                    RingTrack(progress: status.ringProgress, color: entry.brand)
+                    // Session usage
+                    RingTrack(
+                        progress: status.ringProgress,
+                        fill: entry.brand,
+                        inset: 5,
+                        lineWidth: 2.8,
+                        lineCap: .round
+                    )
+
+                    // Weekly usage. A round cap would show the gradient's red
+                    // end behind 12 o'clock.
+                    if let weekly = status.weeklyProgress {
+                        RingTrack(
+                            progress: weekly,
+                            fill: BarTone.ring,
+                            inset: 1.1,
+                            lineWidth: 2.2,
+                            lineCap: .butt
+                        )
+                    }
 
                     // Provider logo mark
                     ProviderMark(entry: entry)
@@ -355,25 +373,25 @@ struct RingCell: View {
 
 // MARK: - Progress Ring Track
 
-struct RingTrack: View {
+struct RingTrack<Fill: ShapeStyle>: View {
     var progress: Double?
-    var color: Color
+    var fill: Fill
+    var inset: CGFloat
+    var lineWidth: CGFloat
+    var lineCap: CGLineCap
 
     var body: some View {
         ZStack {
             // Inactive subtle track
             Circle()
-                .inset(by: 1.5)
-                .stroke(Color.white.opacity(0.10), lineWidth: 2.8)
+                .inset(by: inset)
+                .stroke(Color.white.opacity(0.10), lineWidth: lineWidth)
 
             // Active progress arc
             Circle()
-                .inset(by: 1.5)
+                .inset(by: inset)
                 .trim(from: 0, to: progress ?? 0)
-                .stroke(
-                    color.opacity(progress == nil ? 0.25 : 1),
-                    style: StrokeStyle(lineWidth: 2.8, lineCap: .round)
-                )
+                .stroke(fill, style: StrokeStyle(lineWidth: lineWidth, lineCap: lineCap))
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 0.35), value: progress)
         }
@@ -1021,7 +1039,7 @@ struct UsageRowView: View {
                         Capsule()
                             .fill(BarTone.gradient)
                             .mask(alignment: .leading) {
-                                Capsule().frame(width: max(6, geo.size.width * min(max(pct / 100.0, 0), 1)))
+                                Capsule().frame(width: max(6, geo.size.width * UsageMath.fraction(pct)))
                             }
                     }
                 }
@@ -1072,13 +1090,18 @@ extension UsageStore {
                 UsageRow(title: "Current session", resetsAt: sessionEnd, percentUsed: 73, unlimited: false),
                 UsageRow(title: "All models", resetsAt: weekEnd, percentUsed: 7, unlimited: false),
             ],
-            detail: nil
+            detail: nil,
+            weeklyPercent: 7
         )))
         store.apply("grok", .ok(UsageSnapshot(
-            ringPercent: 21,
+            ringPercent: 9,
             ringUnlimited: false,
-            rows: [UsageRow(title: "Weekly", resetsAt: weekEnd, percentUsed: 21, unlimited: false)],
-            detail: nil
+            rows: [
+                UsageRow(title: "Weekly", resetsAt: weekEnd, percentUsed: 21, unlimited: false),
+                UsageRow(title: "Grok Build", resetsAt: weekEnd, percentUsed: 9, unlimited: false),
+            ],
+            detail: nil,
+            weeklyPercent: 21
         )))
         store.apply("antigravity", .ok(UsageSnapshot(
             ringPercent: 52,
@@ -1087,7 +1110,8 @@ extension UsageStore {
                 UsageRow(title: "Current session", resetsAt: sessionEnd, percentUsed: 52, unlimited: false),
                 UsageRow(title: "Weekly", resetsAt: weekEnd, percentUsed: 18, unlimited: false),
             ],
-            detail: nil
+            detail: nil,
+            weeklyPercent: 18
         )))
         store.apply("copilot", .ok(UsageSnapshot(
             ringPercent: 40,
