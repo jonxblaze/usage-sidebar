@@ -2,7 +2,7 @@
 
 **Usage Sidebar** is an always-on-top, right-edge macOS utility pill that monitors **your live quota and credit usage** across top AI coding tools: **Claude Code**, **Grok Build**, **Google Antigravity**, and **GitHub Copilot**.
 
-It never invents numbers: missing or expired credentials show **—**, and SwiftUI previews are labeled **Sample**.
+It never invents numbers: expired credentials show **—**, and SwiftUI previews are labeled **Sample**. Tools you aren't signed in to stay hidden, and appear by themselves within about a minute of signing in.
 
 This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a detailed flyout popover with quota breakdown and reset timers, or click it to keep the popover open. Click the bottom handle to collapse the sidebar into a slim edge tab, or click the settings gear to toggle launch at login and quit.
 
@@ -12,7 +12,7 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
 
 ## ✨ Features & Design
 
-- **Organic Right-Edge Scoop (`EdgeScoopShape`)**: Obsidian dark dock (`#0F0F12`) with smooth concave Bézier fillets that seamlessly hug the right edge of your display.
+- **Organic Right-Edge Scoop (`EdgeScoopShape`)**: Obsidian dark dock (`#0F0F12`) with rounded left corners and no right border, so it appears to come out of the right edge of your display.
 - **Vertical Badge Widget System**:
   - 38×38pt circular badges with high-contrast active progress ring tracks.
   - High-legibility monospaced percentage readouts (`13pt .monospacedDigit()`) placed directly below each badge.
@@ -25,7 +25,7 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
   - 🟡 **Google Antigravity**: Multi-faceted crystal snowflake starburst mark (`#D6F01F`).
   - 🔵 **GitHub Copilot**: Official GitHub Primer Octicons astronaut robot head with visor & eye cutouts (`#409EFF`).
   - Built with a pure Swift zero-dependency SVG path parsing engine (`SVGPathEngine`).
-- **Collapsible Edge Tab**: Click the collapse handle to stow the sidebar into a minimal 18pt edge tab (`CollapsedScoopShape`), or hover to expand.
+- **Collapsible Edge Tab**: Click the collapse handle to stow the sidebar into a minimal 18pt edge tab, or hover to expand.
 - **Your Own Provider List**: Open **Manage Providers…** in Settings to remove built-in providers or add your own, up to 10 in all. A custom provider needs an HTTPS URL that returns usage as JSON, an API key, and the path to a 0-100 percent field, like `data.percent_used`. Keys are stored in the macOS Keychain and sent as a Bearer token to that URL only, and redirects are not followed. The app is ad-hoc signed, so another program running as you could read these keys. That is the same protection as the credential files the sidebar reads.
 - **Integrated Settings Popover**: Dedicated gear button for "Start at Login" configuration (`SMAppService`), Auto-Hide preferences, and quick app termination.
 - **Detailed Quota Popovers**:

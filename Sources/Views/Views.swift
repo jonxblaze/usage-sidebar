@@ -65,7 +65,7 @@ struct SidebarRoot: View {
             }
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.82), value: store.expanded)
-        .onChange(of: store.providers) { _, providers in
+        .onChange(of: store.visibleProviders) { _, providers in
             // A removed ring takes its popover with it. A stale ID here would
             // read as an open popover and block auto-hide.
             if let active = activePopoverID, !providers.contains(where: { $0.id == active }) {
@@ -78,7 +78,7 @@ struct SidebarRoot: View {
     private var expandedBody: some View {
         VStack(spacing: 11) {
             // Providers vertical list
-            ForEach(store.providers) { entry in
+            ForEach(store.visibleProviders) { entry in
                 RingCell(
                     entry: entry,
                     status: store.status(for: entry),
@@ -87,14 +87,22 @@ struct SidebarRoot: View {
                 )
             }
 
+            if store.visibleProviders.isEmpty && !store.isSearching {
+                Text("None found")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .frame(width: 38)
+            }
+
             // Divider line
             Rectangle()
                 .fill(Color.white.opacity(0.10))
                 .frame(width: 24, height: 1)
                 .padding(.vertical, 1)
 
-            // Settings & Pin toolbar
-            HStack(spacing: 4) {
+            // Settings & Pin toolbar. Side by side, these are wider than the rings.
+            VStack(spacing: 6) {
                 // Pin button
                 Button {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.80)) {
@@ -195,10 +203,10 @@ struct SidebarRoot: View {
             }
         } label: {
             ZStack {
-                CollapsedScoopShape(cornerRadius: 10)
-                    .fill(Color(red: 0.07, green: 0.07, blue: 0.09).opacity(0.96))
+                EdgeScoopShape(cornerRadius: 10)
+                    .fill(EdgeScoopShape.fill)
                     .overlay {
-                        CollapsedScoopShape(cornerRadius: 10)
+                        EdgeScoopShape(cornerRadius: 10, isOutline: true)
                             .stroke(
                                 LinearGradient(
                                     colors: [
@@ -374,70 +382,41 @@ struct RingTrack: View {
 
 // MARK: - Right-Edge Dock Shapes
 
-/// Shape that hugs the right edge of the display with rounded outer corners and flush inner edge.
+/// Shape that runs off the right edge of the display, with rounded corners on the left.
 struct EdgeScoopShape: Shape {
+    static let fill = Color(red: 0.06, green: 0.06, blue: 0.07).opacity(0.96)
+
     var cornerRadius: CGFloat = 18
+    /// Leaves the right side open and sits inside the frame, for a 1pt stroke.
+    var isOutline = false
 
     func path(in rect: CGRect) -> Path {
-        let w = rect.width
-        let h = rect.height
-        let r = min(cornerRadius, min(w, h / 2))
+        let inset: CGFloat = isOutline ? 0.5 : 0
+        let top = inset
+        let left = inset
+        let bottom = rect.height - inset
+        let r = min(cornerRadius, min(rect.width, rect.height / 2))
 
         var p = Path()
-        p.move(to: CGPoint(x: w, y: 0))
-        p.addLine(to: CGPoint(x: r, y: 0))
+        p.move(to: CGPoint(x: rect.width, y: top))
+        p.addLine(to: CGPoint(x: left + r, y: top))
         p.addArc(
-            center: CGPoint(x: r, y: r),
+            center: CGPoint(x: left + r, y: top + r),
             radius: r,
             startAngle: .degrees(-90),
             endAngle: .degrees(180),
             clockwise: true
         )
-        p.addLine(to: CGPoint(x: 0, y: h - r))
+        p.addLine(to: CGPoint(x: left, y: bottom - r))
         p.addArc(
-            center: CGPoint(x: r, y: h - r),
+            center: CGPoint(x: left + r, y: bottom - r),
             radius: r,
             startAngle: .degrees(180),
             endAngle: .degrees(90),
             clockwise: true
         )
-        p.addLine(to: CGPoint(x: w, y: h))
-        p.addLine(to: CGPoint(x: w, y: 0))
-        p.closeSubpath()
-        return p
-    }
-}
-
-/// Compact tab shape for collapsed state.
-struct CollapsedScoopShape: Shape {
-    var cornerRadius: CGFloat = 10
-
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width
-        let h = rect.height
-        let r = min(cornerRadius, min(w, h / 2))
-
-        var p = Path()
-        p.move(to: CGPoint(x: w, y: 0))
-        p.addLine(to: CGPoint(x: r, y: 0))
-        p.addArc(
-            center: CGPoint(x: r, y: r),
-            radius: r,
-            startAngle: .degrees(-90),
-            endAngle: .degrees(180),
-            clockwise: true
-        )
-        p.addLine(to: CGPoint(x: 0, y: h - r))
-        p.addArc(
-            center: CGPoint(x: r, y: h - r),
-            radius: r,
-            startAngle: .degrees(180),
-            endAngle: .degrees(90),
-            clockwise: true
-        )
-        p.addLine(to: CGPoint(x: w, y: h))
-        p.addLine(to: CGPoint(x: w, y: 0))
-        p.closeSubpath()
+        p.addLine(to: CGPoint(x: rect.width, y: bottom))
+        if !isOutline { p.closeSubpath() }
         return p
     }
 }
@@ -446,9 +425,9 @@ struct CollapsedScoopShape: Shape {
 struct SidebarBackground: View {
     var body: some View {
         EdgeScoopShape(cornerRadius: 18)
-            .fill(Color(red: 0.06, green: 0.06, blue: 0.07).opacity(0.96))
+            .fill(EdgeScoopShape.fill)
             .overlay {
-                EdgeScoopShape(cornerRadius: 18)
+                EdgeScoopShape(cornerRadius: 18, isOutline: true)
                     .stroke(
                         LinearGradient(
                             colors: [
@@ -889,7 +868,7 @@ struct UsagePopover: View {
             Text("Waiting for a live reading…")
                 .font(.system(size: 12))
                 .foregroundStyle(Color.white.opacity(0.7))
-        case .missingAuth(let hint):
+        case .missingAuth(let hint), .notSignedIn(let hint):
             Text(hint)
                 .font(.system(size: 12))
                 .foregroundStyle(Color.white.opacity(0.78))

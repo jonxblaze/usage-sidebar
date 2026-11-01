@@ -95,7 +95,7 @@ final class AddProviderForm: ObservableObject {
     private func summary(_ status: ProviderStatus) -> String {
         switch status {
         case .ok: return "Works: \(status.ringCaption) used."
-        case .missingAuth(let hint): return hint
+        case .missingAuth(let hint), .notSignedIn(let hint): return hint
         case .error(let message): return message
         case .rateLimited: return "Rate limited. Try again in a minute."
         case .loading: return ""
@@ -141,6 +141,11 @@ struct ProvidersView: View {
                     Text(entry.displayName)
                         .font(.system(size: 13))
                     Spacer()
+                    if case .notSignedIn = store.status(for: entry) {
+                        Text("Not signed in")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
                     Button("Remove") { store.remove(entry) }
                 }
             }

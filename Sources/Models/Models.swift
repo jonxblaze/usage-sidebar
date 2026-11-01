@@ -105,6 +105,17 @@ enum ProviderEntry: Codable, Equatable, Identifiable {
 
     var usageTitle: String { "\(displayName) Usage" }
 
+    /// Built-ins stay hidden until a sign-in turns up. Custom providers were
+    /// added by hand, so they always show.
+    func isVisible(status: ProviderStatus, wasSeen: Bool) -> Bool {
+        if case .custom = self { return true }
+        if wasSeen { return true }
+        switch status {
+        case .loading, .notSignedIn: return false
+        default: return true
+        }
+    }
+
     var brand: Color {
         switch self {
         case .builtIn(let provider): return provider.brand
@@ -132,6 +143,8 @@ struct UsageSnapshot: Equatable {
 
 enum ProviderStatus: Equatable {
     case loading
+    /// No saved sign-in exists. An expired or rejected one is `missingAuth`.
+    case notSignedIn(hint: String)
     case missingAuth(hint: String)
     case ok(UsageSnapshot)
     case error(String)

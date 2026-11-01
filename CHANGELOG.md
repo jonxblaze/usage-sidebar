@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.8] - 2026-10-31
+
+### Changed
+- **Auto-detected providers**: built-ins now stay hidden until a saved sign-in is found, and appear by themselves within about a minute of signing in. An expired sign-in keeps its badge and hint. Manage Providers marks hidden ones "Not signed in", and removed providers stay removed.
+- **Sidebar edge**: the right border is gone, so the sidebar and its collapsed tab appear to come out of the side of the screen. Both now share one shape and one fill color. The pin and settings buttons are stacked, so they no longer crowd the edge.
+
+---
+
 ## [1.2.7] - 2026-10-31
 
 ### Fixed
