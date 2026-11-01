@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.10] - 2026-10-31
+
+- New app icon: a usage ring on an obsidian tile, using the same green-to-red scale as the popover bars.
+
+---
+
 ## [1.2.9] - 2026-10-31
 
 ### Changed

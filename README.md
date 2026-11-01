@@ -39,7 +39,7 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
   - Multi-tier bucket breakdowns (session limits, weekly caps, premium interactions).
   - Active popover protection keeps the dock open while reading details.
 - **Multi-Monitor Awareness**: Automatically repositions and anchors flush to the active screen on display configuration changes.
-- **Native App Icon**: High-resolution macOS application icon bundle (`AppIcon.icns`).
+- **Native App Icon**: A usage ring on an obsidian tile (`AppIcon.icns`), drawn by `scripts/make-icon.swift`.
 
 ---
 
@@ -154,9 +154,11 @@ usage-sidebar/
 ├── dist/                         # Compiled macOS application output (UsageSidebar.app)
 └── scripts/
     ├── build-app.sh              # Standalone swiftc build & code signing script
+    ├── build-icon.sh             # Builds AppIcon.png and AppIcon.icns
     ├── bump-release.py           # Version and changelog bump
     ├── hooks/pre-commit          # Runs the bump on commit
     ├── install-hooks.sh          # Installs the pre-commit hook
+    ├── make-icon.swift           # Draws the app icon
     └── test.sh                   # Compiles and runs the tests
 ```
 
