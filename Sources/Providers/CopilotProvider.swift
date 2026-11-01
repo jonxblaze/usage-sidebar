@@ -6,7 +6,7 @@ enum CopilotProvider {
     static func fetch() async -> ProviderStatus {
         do {
             guard let token = await Task.detached(priority: .utility, operation: { loadToken() }).value else {
-                return .missingAuth(hint: BuiltInProvider.copilot.missingHint)
+                return .notSignedIn(hint: BuiltInProvider.copilot.missingHint)
             }
             let response = try await HTTP.request(
                 url: userURL,

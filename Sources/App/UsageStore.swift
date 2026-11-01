@@ -13,8 +13,10 @@ final class UsageStore: ObservableObject {
             if let data = try? JSONEncoder().encode(providers) {
                 UserDefaults.standard.set(data, forKey: Self.providersKey)
             }
+            refreshVisibleProviders()
         }
     }
+    @Published private(set) var visibleProviders: [ProviderEntry]
     @Published private var statuses: [String: ProviderStatus] = [:]
     @Published var expanded: Bool
     @Published var autoHide: Bool {
@@ -27,10 +29,14 @@ final class UsageStore: ObservableObject {
 
     private let previewMode: Bool
     private var tasks: [String: Task<Void, Never>] = [:]
+    /// Keeps a badge up through a slow Keychain read. Not saved between launches.
+    private var seenIDs = Set<String>()
 
     init(preview: Bool = false) {
         previewMode = preview
-        providers = Self.savedProviders()
+        let saved = Self.savedProviders()
+        providers = saved
+        visibleProviders = saved.filter { $0.isVisible(status: .loading, wasSeen: false) }
         startsAtLogin = LoginItem.isEnabled
         let isAutoHide = UserDefaults.standard.object(forKey: "autoHide") != nil
             ? UserDefaults.standard.bool(forKey: "autoHide")
@@ -49,6 +55,11 @@ final class UsageStore: ObservableObject {
 
     func status(for entry: ProviderEntry) -> ProviderStatus {
         statuses[entry.id] ?? .loading
+    }
+
+    /// True until every built-in has had its first check.
+    var isSearching: Bool {
+        providers.contains { status(for: $0) == .loading }
     }
 
     var canAddProvider: Bool { providers.count < Self.maxProviders }
@@ -77,6 +88,7 @@ final class UsageStore: ObservableObject {
     func remove(_ entry: ProviderEntry) {
         tasks.removeValue(forKey: entry.id)?.cancel()
         statuses[entry.id] = nil
+        seenIDs.remove(entry.id)
         providers.removeAll { $0.id == entry.id }
         if case .custom(let provider) = entry {
             Task.detached(priority: .utility) {
@@ -125,7 +137,7 @@ final class UsageStore: ObservableObject {
             case .rateLimited(let until):
                 let wait = max(until.timeIntervalSinceNow, 30)
                 await sleep(wait)
-            case .missingAuth:
+            case .missingAuth, .notSignedIn:
                 // Credentials can appear the moment Claude/Grok refresh a token.
                 // Do not stretch this out to 5 minutes.
                 interval = 60
@@ -152,6 +164,15 @@ final class UsageStore: ObservableObject {
 
     func apply(_ id: String, _ status: ProviderStatus) {
         statuses[id] = status
+        refreshVisibleProviders()
+    }
+
+    private func refreshVisibleProviders() {
+        for entry in providers where entry.isVisible(status: status(for: entry), wasSeen: false) {
+            seenIDs.insert(entry.id)
+        }
+        let visible = providers.filter { seenIDs.contains($0.id) }
+        if visible != visibleProviders { visibleProviders = visible }
     }
 
     private func sleep(_ seconds: TimeInterval) async {

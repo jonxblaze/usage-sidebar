@@ -45,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in
                 self?.animateResize()
             }
-        providersSink = store.$providers
+        providersSink = store.$visibleProviders
             .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in

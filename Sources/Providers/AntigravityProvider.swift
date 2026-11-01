@@ -13,7 +13,7 @@ enum AntigravityProvider {
             if let status = await fetchCloud(token: token) { return status }
         }
         if token == nil {
-            return .missingAuth(hint: BuiltInProvider.antigravity.missingHint)
+            return .notSignedIn(hint: BuiltInProvider.antigravity.missingHint)
         }
         return .error("Antigravity quota unavailable. Open Antigravity and try again.")
     }

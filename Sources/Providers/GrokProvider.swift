@@ -7,7 +7,7 @@ enum GrokProvider {
     static func fetch() async -> ProviderStatus {
         do {
             guard let token = await Task.detached(priority: .utility, operation: { loadToken() }).value else {
-                return .missingAuth(hint: BuiltInProvider.grok.missingHint)
+                return .notSignedIn(hint: BuiltInProvider.grok.missingHint)
             }
             var lastStatus = 0
             for url in [billingURL, billingURLAlt] {
