@@ -106,7 +106,21 @@ func grokSnapshot(period: String, _ extra: [String: Any] = ["creditUsagePercent"
 }
 
 let grokWeekly = grokSnapshot(period: "USAGE_PERIOD_TYPE_WEEKLY")
-check("grok weekly has no session ring", grokWeekly != nil && grokWeekly?.ringPercent == nil)
+check("grok without a build slice has an empty inner ring", grokWeekly != nil && grokWeekly?.ringPercent == nil)
+let grokBoth = grokSnapshot(period: "USAGE_PERIOD_TYPE_WEEKLY", [
+    "creditUsagePercent": 21.0,
+    "productUsage": [
+        ["product": "GrokChat", "usagePercent": 12.0],
+        ["product": "GrokBuild", "usagePercent": 9.0],
+    ],
+])
+check("grok inner ring is grok build", grokBoth?.ringPercent == 9)
+check("grok outer ring stays weekly credits", grokBoth?.weeklyPercent == 21)
+let grokOnlyChat = grokSnapshot(period: "USAGE_PERIOD_TYPE_WEEKLY", [
+    "creditUsagePercent": 21.0,
+    "productUsage": [["product": "GrokChat", "usagePercent": 12.0]],
+])
+check("another product never fills the inner ring", grokOnlyChat != nil && grokOnlyChat?.ringPercent == nil)
 check("grok weekly fills the outer ring", grokWeekly?.weeklyPercent == 21)
 check("grok caption falls back to weekly", grokStatus(period: "USAGE_PERIOD_TYPE_WEEKLY")?.ringCaption == "21%")
 let grokMonthly = grokSnapshot(period: "USAGE_PERIOD_TYPE_MONTHLY")

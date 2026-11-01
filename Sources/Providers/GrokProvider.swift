@@ -61,15 +61,18 @@ enum GrokProvider {
                 unlimited: false
             ))
         }
+        var build: Double?
         if let products = config.array("productUsage", "product_usage") {
             for item in products {
                 guard let map = JSONMap(item),
                       let name = map.string("product"),
                       let raw = map.double("usagePercent", "usage_percent") else { continue }
+                let percentUsed = UsageMath.clampedPercent(raw)
+                if name.lowercased() == "grokbuild" { build = percentUsed }
                 rows.append(UsageRow(
                     title: productTitle(name),
                     resetsAt: end,
-                    percentUsed: UsageMath.clampedPercent(raw),
+                    percentUsed: percentUsed,
                     unlimited: false
                 ))
             }
@@ -79,10 +82,11 @@ enum GrokProvider {
         if ring == nil && end == nil {
             return .error("Grok billing response had no creditUsagePercent or period end.")
         }
-        // Grok has no session limit, so weekly use fills the outer ring alone.
+        // Grok has no session limit, so the inner ring is the Grok Build slice
+        // of the weekly credits on the outer ring.
         let weekly = isMonthly ? nil : unified.map(UsageMath.clampedPercent)
         return .ok(UsageSnapshot(
-            ringPercent: weekly == nil ? ring : nil,
+            ringPercent: weekly == nil ? ring : build,
             ringUnlimited: false,
             rows: rows,
             detail: nil,

@@ -107,7 +107,7 @@ Those items trust `/usr/bin/security` (`apple-tool:`), not this app. The sidebar
 2. **xAI Grok Build**:
    - Reads from `~/.grok/auth.json` (`https://accounts.x.ai/sign-in`.key, `{issuer}::{client_id}`.key, or `access_token`).
    - `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` with `x-grok-client-surface: grok-build` and `X-XAI-Token-Auth: xai-grok-cli`.
-   - Outer ring tracks `config.creditUsagePercent`. Grok reports no session limit, so the inner ring stays empty and the caption shows the weekly value. On a monthly period, or without that field, there is no outer ring and the inner ring shows the first row. Popover shows the quota and billing period reset date.
+   - Outer ring tracks `config.creditUsagePercent`. Grok reports no session limit, so the inner ring and caption show the Grok Build entry in `config.productUsage`. If that entry is missing, the inner ring stays empty and the caption shows the weekly value. On a monthly period, or without `creditUsagePercent`, there is no outer ring and the inner ring shows the first row. Popover shows the quota and billing period reset date.
 3. **Google Antigravity**:
    - Reads from `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.gemini/oauth_creds.json`, `~/.agy`, or `~/Library/Application Support/Antigravity`.
    - Primary: `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`.

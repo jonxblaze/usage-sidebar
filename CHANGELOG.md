@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.12] - 2026-11-01
+
+### Changed
+- **Grok ring**: the inner ring and caption now show Grok Build usage. The outer ring stays on weekly credits.
+
+---
+
 ## [1.2.11] - 2026-11-01
 
 ### Added

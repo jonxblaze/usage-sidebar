@@ -1094,9 +1094,12 @@ extension UsageStore {
             weeklyPercent: 7
         )))
         store.apply("grok", .ok(UsageSnapshot(
-            ringPercent: nil,
+            ringPercent: 9,
             ringUnlimited: false,
-            rows: [UsageRow(title: "Weekly", resetsAt: weekEnd, percentUsed: 21, unlimited: false)],
+            rows: [
+                UsageRow(title: "Weekly", resetsAt: weekEnd, percentUsed: 21, unlimited: false),
+                UsageRow(title: "Grok Build", resetsAt: weekEnd, percentUsed: 9, unlimited: false),
+            ],
             detail: nil,
             weeklyPercent: 21
         )))
