@@ -13,6 +13,7 @@ swiftc \
   "$root/Sources/Providers/AntigravityProvider.swift" \
   "$root/Sources/Providers/ClaudeProvider.swift" \
   "$root/Sources/Providers/CopilotProvider.swift" \
+  "$root/Sources/Providers/GrokProvider.swift" \
   "$root/Tests/main.swift" \
   -o "$out/tests"
 "$out/tests"

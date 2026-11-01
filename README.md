@@ -19,7 +19,7 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
 
 - **Organic Right-Edge Scoop (`EdgeScoopShape`)**: Obsidian dark dock (`#0F0F12`) with rounded left corners and no right border, so it appears to come out of the right edge of your display.
 - **Vertical Badge Widget System**:
-  - 38×38pt circular badges with high-contrast active progress ring tracks.
+  - 38×38pt circular badges with two rings. The inner ring is session usage in the provider's color. The outer ring is weekly usage on the same green-to-red scale as the popover bars, so red is only reached at 100%. A provider with no weekly limit has no outer ring.
   - High-legibility monospaced percentage readouts (`13pt .monospacedDigit()`) placed directly below each badge.
   - Interactive hover scaling and spring animations.
 - **Hover Slide-In & Focusout Slide-Out**: Moving your mouse over the collapsed edge tab automatically slides the full dock into view; leaving the dock automatically stows it back into the edge tab after a 350ms grace period.
@@ -102,17 +102,17 @@ Those items trust `/usr/bin/security` (`apple-tool:`), not this app. The sidebar
 1. **Anthropic Claude**:
    - Reads Keychain `Claude Code-credentials` first (live token), then `~/.claude/.credentials.json` if it is still valid.
    - `GET https://api.anthropic.com/api/oauth/usage` with header `anthropic-beta: oauth-2025-04-20`.
-   - Ring tracks the 5-hour rolling session percentage. Popover details current session + weekly all-models utilization.
+   - Inner ring tracks the 5-hour rolling session percentage. Outer ring tracks weekly all-models utilization. Popover details both.
    - *Note: Does not refresh OAuth tokens to prevent rotating Claude Code's active session.*
 2. **xAI Grok Build**:
    - Reads from `~/.grok/auth.json` (`https://accounts.x.ai/sign-in`.key, `{issuer}::{client_id}`.key, or `access_token`).
    - `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` with `x-grok-client-surface: grok-build` and `X-XAI-Token-Auth: xai-grok-cli`.
-   - Ring tracks `config.creditUsagePercent`. Popover shows weekly quota and billing period reset date.
+   - Outer ring tracks `config.creditUsagePercent`. Grok reports no session limit, so the inner ring stays empty and the caption shows the weekly value. On a monthly period, or without that field, there is no outer ring and the inner ring shows the first row. Popover shows the quota and billing period reset date.
 3. **Google Antigravity**:
    - Reads from `~/.gemini/antigravity-cli/oauth_creds.json`, `~/.gemini/oauth_creds.json`, `~/.agy`, or `~/Library/Application Support/Antigravity`.
    - Primary: `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`.
    - Fallback: Connects via local loopback language server (`RetrieveUserQuotaSummary` / `GetUserStatus` on `127.0.0.1` via TLS with `LocalTrustDelegate`).
-   - Ring displays the plan's weekly limit (`gemini-weekly`), or the highest bucket if that is missing. Other limits, including per-model ones, are listed in the popover. The local language server fallback shows the scarcest Gemini model instead.
+   - Inner ring displays the plan's session limit (`gemini-5h`), then `gemini-weekly`, then the highest bucket if those are missing. Outer ring displays `gemini-weekly`. Other limits, including per-model ones, are listed in the popover. The local language server `GetUserStatus` fallback shows the scarcest Gemini model on the inner ring and has no outer ring.
 4. **GitHub Copilot**:
    - Reads from `~/.config/gh/hosts.yml` or `gh auth token`.
    - `GET https://api.github.com/copilot_internal/user` → `quota_snapshots`.

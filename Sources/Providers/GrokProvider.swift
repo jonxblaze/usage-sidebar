@@ -41,7 +41,7 @@ enum GrokProvider {
         }
     }
 
-    private static func parse(_ json: JSONMap) -> ProviderStatus {
+    static func parse(_ json: JSONMap) -> ProviderStatus {
         let config = json.map("config") ?? json
         // Grok `/usage` is unified SuperGrok weekly credits, not the
         // GrokBuild-only product slice (those can differ by several points).
@@ -50,15 +50,12 @@ enum GrokProvider {
         let end = DateParse.date(from: period?.any("end"))
             ?? DateParse.date(from: config.any("billingPeriodEnd", "billing_period_end"))
         let periodType = period?.string("type", "periodType") ?? ""
-        let weeklyTitle: String = {
-            if periodType.uppercased().contains("MONTH") { return "Monthly" }
-            return "Weekly"
-        }()
+        let isMonthly = periodType.uppercased().contains("MONTH")
 
         var rows: [UsageRow] = []
         if let unified {
             rows.append(UsageRow(
-                title: weeklyTitle,
+                title: isMonthly ? "Monthly" : "Weekly",
                 resetsAt: end,
                 percentUsed: UsageMath.clampedPercent(unified),
                 unlimited: false
@@ -82,11 +79,14 @@ enum GrokProvider {
         if ring == nil && end == nil {
             return .error("Grok billing response had no creditUsagePercent or period end.")
         }
+        // Grok has no session limit, so weekly use fills the outer ring alone.
+        let weekly = isMonthly ? nil : unified.map(UsageMath.clampedPercent)
         return .ok(UsageSnapshot(
-            ringPercent: ring,
+            ringPercent: weekly == nil ? ring : nil,
             ringUnlimited: false,
             rows: rows,
-            detail: nil
+            detail: nil,
+            weeklyPercent: weekly
         ))
     }
 

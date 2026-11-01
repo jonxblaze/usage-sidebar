@@ -134,11 +134,14 @@ struct UsageRow: Equatable {
 }
 
 struct UsageSnapshot: Equatable {
-    /// Ring value. `nil` means draw an empty ring and show "—".
+    /// Inner ring value, the current session where the provider has one.
+    /// `nil` means draw an empty ring.
     var ringPercent: Double?
     var ringUnlimited: Bool
     var rows: [UsageRow]
     var detail: String?
+    /// Outer ring value. `nil` means the provider has no weekly limit to draw.
+    var weeklyPercent: Double? = nil
 }
 
 enum ProviderStatus: Equatable {
@@ -156,7 +159,7 @@ enum ProviderStatus: Equatable {
         case .ok(let snap) where snap.ringUnlimited:
             return "∞"
         case .ok(let snap):
-            if let pct = snap.ringPercent {
+            if let pct = snap.ringPercent ?? snap.weeklyPercent {
                 return "\(Int(pct.rounded()))%"
             }
             return "—"
@@ -171,14 +174,24 @@ enum ProviderStatus: Equatable {
             return 0
         case .ok(let snap):
             guard let pct = snap.ringPercent else { return nil }
-            return min(max(pct / 100.0, 0), 1)
+            return UsageMath.fraction(pct)
         default:
             return nil
         }
     }
+
+    var weeklyProgress: Double? {
+        guard case .ok(let snap) = self, let pct = snap.weeklyPercent else { return nil }
+        return UsageMath.fraction(pct)
+    }
 }
 
 enum UsageMath {
+    /// How much of a ring or bar to fill, 0...1.
+    static func fraction(_ percent: Double) -> Double {
+        min(max(percent / 100.0, 0), 1)
+    }
+
     /// For values already on a 0...100 scale.
     static func clampedPercent(_ raw: Double) -> Double {
         min(max(raw, 0), 999)
@@ -276,4 +289,11 @@ enum BarTone {
         .init(color: Color(red: 1.00, green: 0.25, blue: 0.22), location: 1),
     ]
     static let gradient = LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing)
+    /// The same scale once around a circle, so red is only reached at 100%.
+    static let ring = AngularGradient(
+        stops: stops,
+        center: .center,
+        startAngle: .degrees(0),
+        endAngle: .degrees(360)
+    )
 }

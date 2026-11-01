@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.11] - 2026-11-01
+
+### Added
+- **Weekly ring**: each badge with a weekly limit now has an outer ring for weekly usage, on the same green-to-red scale as the popover bars. The inner ring is session usage. Copilot, custom providers and Grok on a monthly period have no outer ring.
+
+### Changed
+- **Antigravity ring**: the inner ring and caption now follow the plan's session limit, and weekly moves to the outer ring. One exhausted model still cannot drive either ring.
+- **Grok ring**: weekly credits move to the outer ring. Grok has no session limit, so the inner ring is empty and the caption still shows the weekly value.
+
+---
+
 ## [1.2.10] - 2026-10-31
 
 - New app icon: a usage ring on an obsidian tile, using the same green-to-red scale as the popover bars.
