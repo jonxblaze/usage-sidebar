@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.9] - 2026-10-31
+
+### Changed
+- Version bump
+
+
+---
+
 ## [1.2.8] - 2026-10-31
 
 ### Changed

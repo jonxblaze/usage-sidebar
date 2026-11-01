@@ -8,6 +8,11 @@ This is an `LSUIElement` accessory app (no Dock icon). Hover any badge to open a
 
 > **Unofficial Utility**: Reuses tokens and credentials already stored locally by those tools and queries the same usage endpoints they use internally. Credentials and secrets are never printed or transmitted to third parties.
 
+<p align="center">
+  <img src="docs/screenshots/claude-usage.png" alt="Claude usage popover beside the sidebar, showing session and weekly limits" width="380">
+  <img src="docs/screenshots/grok-usage.png" alt="Grok Build usage popover beside the sidebar, showing five usage limits" width="380">
+</p>
+
 ---
 
 ## ✨ Features & Design
